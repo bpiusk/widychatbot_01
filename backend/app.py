@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import os
 from dotenv import load_dotenv
-from chat_engine import get_conversation_chain, get_conversation_chain_with_paraphrase
+from chat_engine import get_conversation_chain_with_multiquery_llm
 from pdf_manager import save_pdf, delete_pdf, list_pdfs, list_embedded_pdfs
 from auth import authenticate_admin, create_access_token, get_current_admin
 import logging
@@ -40,7 +40,7 @@ class ChatResponse(BaseModel):
 
 @app.post("/chat", response_model=ChatResponse)
 async def chat(request: ChatRequest):
-    conversation = get_conversation_chain(openai_api_key)
+    conversation = get_conversation_chain_with_multiquery_llm(openai_api_key)
     response = conversation({"question": request.question})
     answer = response["chat_history"][-1].content
     return {"answer": answer}
