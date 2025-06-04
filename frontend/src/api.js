@@ -1,7 +1,5 @@
-//const BASE_URL = "http://localhost:8000";
-//const BASE_URL = "https://abc123.ngrok.io";
-//const BASE_URL = "https://a818-114-10-137-235.ngrok-free.app";
-const BASE_URL = process.env.REACT_APP_BASE_URL;
+const BASE_URL = "http://localhost:8000";
+//const BASE_URL = process.env.REACT_APP_BASE_URL;
 
 // Chatbot user
 export async function chat(question) {
