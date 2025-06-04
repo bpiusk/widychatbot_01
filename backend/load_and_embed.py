@@ -1,4 +1,5 @@
 import os
+import re
 from dotenv import load_dotenv
 from langchain.embeddings import HuggingFaceEmbeddings
 from langchain.vectorstores import Chroma
@@ -19,14 +20,23 @@ if __name__ == "__main__":
         chunks = split_text(raw_text)
         print(f"Jumlah chunk dari {filename}: {len(chunks)}")
         all_chunks.extend(chunks)
-        all_metadatas.extend([
-            {"source": filename, "text": chunk} for chunk in chunks
-        ])
+        for idx, chunk in enumerate(chunks):
+            tag_match = re.search(r'Tag:\s*(.*)', chunk)
+            tags = [t.strip() for t in tag_match.group(1).split(',')] if tag_match else []
+            metadata = {
+                "source": filename,
+                "text": chunk,
+                "chunk_index": idx,
+                "tags": ", ".join(tags)
+            }
+            all_metadatas.append(metadata)
 
     if all_metadatas:
         print("Contoh metadata:", all_metadatas[0])
     else:
         print("Tidak ada metadata yang dihasilkan.")
+
+    print("Contoh chunk:", chunks[0] if chunks else "TIDAK ADA CHUNK")
 
     embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-mpnet-base-v2")
 
