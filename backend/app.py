@@ -7,6 +7,7 @@ from chat_engine import get_conversation_chain, get_conversation_chain_with_para
 from pdf_manager import save_pdf, delete_pdf, list_pdfs, list_embedded_pdfs
 from auth import authenticate_admin, create_access_token, get_current_admin
 import logging
+from dotenv import load_dotenv
 
 # Variabel global untuk progress embedding
 embedding_progress = {"progress": 0, "status": "idle"}
@@ -16,10 +17,13 @@ openai_api_key = os.getenv("OPENAI_API_KEY")
 
 app = FastAPI()
 
+origins = [
+    os.getenv("ALLOWED_ORIGINS", "http://localhost:3000"),
+]
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000","https://b441-110-139-153-120.ngrok-free.app"],
+    allow_origins=origins,
     # allow_origins=["http://localhost:3000"],
     allow_credentials=True,
     allow_methods=["*"],
