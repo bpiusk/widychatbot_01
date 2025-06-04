@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { uploadPdf, listPdfs, deletePdf, reEmbed } from "../api";
+import { uploadPdf, listPdfs, deletePdf, reEmbed, deleteFileAndVector, listEmbeddedPdfs, deleteEmbeddedPdf } from "../api";
 import {
   Box,
   Button,
@@ -35,6 +35,8 @@ export default function AdminDashboard({ token, onLogout }) {
   const [message, setMessage] = useState("");
   const [progress, setProgress] = useState(0);
   const [embedProgress, setEmbedProgress] = useState(0);
+  const [debugLoading, setDebugLoading] = useState(false);
+  const [embeddedPdfs, setEmbeddedPdfs] = useState([]);
   const logoutTimer = useRef(null);
   const fileInputRef = useRef();
   const navigate = useNavigate();
@@ -61,8 +63,19 @@ export default function AdminDashboard({ token, onLogout }) {
     }
   };
 
+  // Fetch embedded PDF list
+  const fetchEmbeddedPdfs = async () => {
+    try {
+      const res = await listEmbeddedPdfs(token);
+      setEmbeddedPdfs(Array.isArray(res) ? res : []);
+    } catch {
+      setEmbeddedPdfs([]);
+    }
+  };
+
   useEffect(() => {
     fetchPdfs();
+    fetchEmbeddedPdfs();
     // Auto logout after 30 minutes
     logoutTimer.current = setTimeout(() => {
       if (onLogout) onLogout();
@@ -86,6 +99,7 @@ export default function AdminDashboard({ token, onLogout }) {
             setEmbedProgress(100);
             setMessage("Embedding telah selesai.");
             fetchPdfs();
+            fetchEmbeddedPdfs(); // Tambahkan ini agar embedded_pdfs juga update
           }
         } catch {
           // error handling
@@ -112,15 +126,31 @@ export default function AdminDashboard({ token, onLogout }) {
     setUploading(false);
   };
 
+  // Handler hapus file & vektor
   const handleDelete = async (filename) => {
-    if (!window.confirm(`Hapus file ${filename}?`)) return;
+    if (!window.confirm(`Hapus file & vektor untuk ${filename}?`)) return;
     setMessage("");
     try {
-      const res = await deletePdf(filename, token);
-      setMessage(res.detail || "File dihapus.");
+      const res = await deleteFileAndVector(filename, token);
+      setMessage(res.detail || "File & vektor dihapus.");
       fetchPdfs();
-    } catch {
-      setMessage("Gagal menghapus file.");
+      fetchEmbeddedPdfs(); // Tambahkan ini agar embedded_pdfs juga update
+    } catch (err) {
+      setMessage(err.message || "Gagal menghapus file & vektor.");
+    }
+  };
+
+  // Handler hapus embedded PDF
+  const handleDeleteEmbedded = async (filename) => {
+    if (!window.confirm(`Hapus file embedded ${filename}?`)) return;
+    setMessage("");
+    try {
+      const res = await deleteEmbeddedPdf(filename, token);
+      setMessage(res.detail || "Embedded PDF dihapus.");
+      fetchEmbeddedPdfs();
+      fetchPdfs(); // Tambahkan ini agar daftar pdfs juga update jika file dipindahkan kembali
+    } catch (err) {
+      setMessage(err.message || "Gagal menghapus embedded PDF.");
     }
   };
 
@@ -284,6 +314,43 @@ export default function AdminDashboard({ token, onLogout }) {
                 colorScheme="red"
                 variant="solid"
                 onClick={() => handleDelete(pdf)}
+                disabled={uploading || embedLoading}
+              >
+                Hapus
+              </Button>
+            </Flex>
+          ))}
+        </VStack>
+      </Box>
+      {/* Daftar PDF yang sudah di-embedding */}
+      <Box mt={6}>
+        <Text fontWeight="bold" color="green.600" mb={2}>
+          Daftar PDF yang sudah di-embedding
+        </Text>
+        <VStack align="stretch" spacing={2}>
+          {(!Array.isArray(embeddedPdfs) || embeddedPdfs.length === 0) && (
+            <Text color="text.700">Tidak ada file embedded.</Text>
+          )}
+          {Array.isArray(embeddedPdfs) && embeddedPdfs.map((pdf) => (
+            <Flex
+              key={pdf}
+              align="center"
+              justify="space-between"
+              bg="#f0fff4"
+              borderRadius="md"
+              px={4}
+              py={2}
+              border="1px solid"
+              borderColor="green.400"
+            >
+              <Text color="green.700" fontWeight="medium">
+                {pdf}
+              </Text>
+              <Button
+                size="sm"
+                colorScheme="red"
+                variant="outline"
+                onClick={() => handleDeleteEmbedded(pdf)}
                 disabled={uploading || embedLoading}
               >
                 Hapus

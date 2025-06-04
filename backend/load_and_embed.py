@@ -7,48 +7,9 @@ from utils.splitter import split_text
 
 load_dotenv()
 
-def delete_pdf_vectors(filename):
-    """
-    Menghapus semua vektor yang berasal dari file PDF tertentu dari vectorstore.
-    """
-    embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
-    vectorstore = Chroma(
-        persist_directory="vectorstore",
-        embedding_function=embeddings
-    )
-    docs = vectorstore.get(include=['metadatas', 'ids'])
-    ids_to_delete = [
-        doc_id for doc_id, meta in zip(docs['ids'], docs['metadatas'])
-        if meta.get('source') == filename
-    ]
-    if ids_to_delete:
-        vectorstore.delete(ids=ids_to_delete)
-        vectorstore.persist()
-        print(f"✅ Vektor dari '{filename}' berhasil dihapus dari vectorstore.")
-    else:
-        print(f"⚠️ Tidak ditemukan vektor untuk '{filename}'.")
-
-def embed_single_pdf(filepath, filename):
-    """
-    Embedding satu file PDF ke vectorstore.
-    """
-    from utils.pdf_reader import load_pdf
-    from utils.splitter import split_text
-    embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
-    vectorstore = Chroma(
-        persist_directory="vectorstore",
-        embedding_function=embeddings
-    )
-    raw_text = load_pdf(filepath)
-    chunks = split_text(raw_text)
-    metadatas = [{"source": filename}] * len(chunks)
-    vectorstore.add_texts(chunks, metadatas=metadatas)
-    vectorstore.persist()
-    print(f"✅ Embedding selesai untuk {filename}")
-
 if __name__ == "__main__":
-    pdf_folder = "pdfs"  # Ganti dari "data" ke "pdfs"
-    pdf_texts = load_all_pdfs(pdf_folder)  # {'file1.pdf': '...', ...}
+    pdf_folder = "pdfs" 
+    pdf_texts = load_all_pdfs(pdf_folder)
 
     all_chunks = []
     all_metadatas = []
@@ -58,7 +19,14 @@ if __name__ == "__main__":
         chunks = split_text(raw_text)
         print(f"Jumlah chunk dari {filename}: {len(chunks)}")
         all_chunks.extend(chunks)
-        all_metadatas.extend([{"source": filename}] * len(chunks))
+        all_metadatas.extend([
+            {"source": filename, "text": chunk} for chunk in chunks
+        ])
+
+    if all_metadatas:
+        print("Contoh metadata:", all_metadatas[0])
+    else:
+        print("Tidak ada metadata yang dihasilkan.")
 
     embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
 
@@ -70,4 +38,4 @@ if __name__ == "__main__":
     )
     vectorstore.persist()
 
-    print("✅ Vectorstore berhasil dibuat dan disimpan ke folder 'vectorstore'.")
+    print("Vectorstore berhasil dibuat dan disimpan ke folder 'vectorstore'.")

@@ -1,11 +1,8 @@
 # utils/splitter.py
-from langchain.text_splitter import CharacterTextSplitter
+import re
 
-def split_text(raw_text, chunk_size=900, chunk_overlap=100):
-    splitter = CharacterTextSplitter(
-        separator="\n",
-        chunk_size=chunk_size,
-        chunk_overlap=chunk_overlap,
-        length_function=len
-    )
-    return splitter.split_text(raw_text)
+def split_text(raw_text):
+    
+    pattern = r'(Pertanyaan:.*?Jawaban:.*?)(?=Pertanyaan:|$)'
+    chunks = re.findall(pattern, raw_text, re.DOTALL)
+    return [chunk.strip() for chunk in chunks if chunk.strip()]

@@ -1,4 +1,6 @@
-const BASE_URL = "http://localhost:8000";
+//const BASE_URL = "http://localhost:8000";
+//const BASE_URL = "https://abc123.ngrok.io";
+const BASE_URL = "https://b441-110-139-153-120.ngrok-free.app";
 
 // Chatbot user
 export async function chat(question) {
@@ -59,6 +61,26 @@ export async function deletePdf(filename, token) {
     method: "DELETE",
     headers: { Authorization: `Bearer ${token}` },
   });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || "Gagal menghapus file (server error)");
+  }
+  return res.json();
+}
+
+// Hapus PDF & vektor (admin)
+export async function deleteFileAndVector(filename, token) {
+  const res = await fetch(
+    `${BASE_URL}/admin/delete-file-and-vector/${filename}`,
+    {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${token}` },
+    }
+  );
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || "Gagal menghapus file & vektor (server error)");
+  }
   return res.json();
 }
 
@@ -77,5 +99,40 @@ export async function reEmbed(token) {
     method: "POST",
     headers: { Authorization: `Bearer ${token}` },
   });
+  return res.json();
+}
+
+// Debug: Hapus semua vektor (admin)
+export async function debugClearVectors(token) {
+  const res = await fetch(`${BASE_URL}/admin/debug-clear-vectors`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || "Gagal menghapus semua vektor");
+  }
+  return res.json();
+}
+
+// List embedded PDF (admin)
+export async function listEmbeddedPdfs(token) {
+  const res = await fetch(`${BASE_URL}/admin/list-embedded`, {
+    method: "GET",
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  return res.json(); // [ "file1.pdf", ... ]
+}
+
+// Delete embedded PDF (admin)
+export async function deleteEmbeddedPdf(filename, token) {
+  const res = await fetch(`${BASE_URL}/admin/delete-embedded/${filename}`, {
+    method: "DELETE",
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || "Gagal menghapus embedded PDF (server error)");
+  }
   return res.json();
 }
