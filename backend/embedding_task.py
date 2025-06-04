@@ -38,7 +38,7 @@ def embed_task(embedding_progress):
         if os.path.exists(src_path):
             shutil.move(src_path, dst_path)
 
-    embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
+    embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-mpnet-base-v2")
     vectorstore = Chroma.from_texts(
         all_chunks,
         embedding=embeddings,

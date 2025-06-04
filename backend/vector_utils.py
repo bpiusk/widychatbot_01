@@ -13,6 +13,6 @@ def delete_vector_by_filename(filename):
             import gc
             gc.collect()
     vectorstore_dir = os.path.join(os.path.dirname(__file__), "vectorstore")
-    embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
+    embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-mpnet-base-v2")
     with chroma_context(persist_directory=vectorstore_dir, embedding_function=embeddings) as vectorstore:
         vectorstore.delete(where={"source": filename})

@@ -28,7 +28,7 @@ if __name__ == "__main__":
     else:
         print("Tidak ada metadata yang dihasilkan.")
 
-    embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
+    embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-mpnet-base-v2")
 
     vectorstore = Chroma.from_texts(
         all_chunks,
