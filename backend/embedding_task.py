@@ -29,7 +29,10 @@ def embed_task(embedding_progress):
     for filename, raw_text in pdf_texts.items():
         chunks = split_text(raw_text)
         all_chunks.extend(chunks)
-        all_metadatas.extend([{"source": filename}] * len(chunks))
+        all_metadatas.extend([
+            {"source": filename, "text": chunk, "chunk_index": idx}
+            for idx, chunk in enumerate(chunks)
+        ])
         processed += 1
         embedding_progress["progress"] = int(processed / total * 80)
         # Pindahkan file PDF ke embedded_pdfs setelah selesai di-embedding
