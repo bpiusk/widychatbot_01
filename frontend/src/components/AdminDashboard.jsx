@@ -1,27 +1,13 @@
 import React, { useState, useEffect, useRef } from "react";
 import { uploadPdf, listPdfs, deletePdf, reEmbed, deleteFileAndVector, listEmbeddedPdfs, deleteEmbeddedPdf } from "../api";
-import {
-  Box,
-  Button,
-  Flex,
-  Input,
-  Text,
-  VStack,
-} from "@chakra-ui/react";
-import { CloseIcon } from "@chakra-ui/icons";
-import { useNavigate } from "react-router-dom";
+import { BASE_URL } from "../api";
 
 export function ProgressBar({ progress }) {
   return (
-    <div style={{ width: "100%", background: "#eee", borderRadius: 8, height: 12, marginBottom: 8 }}>
+    <div className="w-full bg-gray-200 rounded h-3 mb-2">
       <div
-        style={{
-          width: `${progress}%`,
-          background: "#0d6efd",
-          height: "100%",
-          borderRadius: 8,
-          transition: "width 0.3s",
-        }}
+        className="bg-blue-600 h-full rounded transition-all"
+        style={{ width: `${progress}%` }}
       />
     </div>
   );
@@ -35,35 +21,27 @@ export default function AdminDashboard({ token, onLogout }) {
   const [message, setMessage] = useState("");
   const [progress, setProgress] = useState(0);
   const [embedProgress, setEmbedProgress] = useState(0);
-  const [debugLoading, setDebugLoading] = useState(false);
   const [embeddedPdfs, setEmbeddedPdfs] = useState([]);
   const logoutTimer = useRef(null);
   const fileInputRef = useRef();
-  const navigate = useNavigate();
 
-  // Cek token, jika tidak ada redirect ke login
   useEffect(() => {
     if (!token) {
       if (onLogout) onLogout();
-      // Gunakan replace agar tidak bisa kembali ke dashboard dengan tombol back
-      navigate("/admin/login", { replace: true });
+      window.location.replace("/admin/login");
     }
-    // eslint-disable-next-line
-  }, [token, navigate, onLogout]);
+  }, [token, onLogout]);
 
-  // Fetch PDF list
   const fetchPdfs = async () => {
     try {
       const res = await listPdfs(token);
-      // Pastikan hasilnya array, jika tidak jadikan array kosong
       setPdfs(Array.isArray(res) ? res : []);
     } catch {
-      setPdfs([]); // fallback agar tidak error di .map()
+      setPdfs([]);
       setMessage("Gagal mengambil daftar PDF.");
     }
   };
 
-  // Fetch embedded PDF list
   const fetchEmbeddedPdfs = async () => {
     try {
       const res = await listEmbeddedPdfs(token);
@@ -76,38 +54,12 @@ export default function AdminDashboard({ token, onLogout }) {
   useEffect(() => {
     fetchPdfs();
     fetchEmbeddedPdfs();
-    // Auto logout after 30 minutes
     logoutTimer.current = setTimeout(() => {
       if (onLogout) onLogout();
-      navigate("/admin/login", { replace: true });
+      window.location.replace("/admin/login");
     }, 30 * 60 * 1000);
     return () => clearTimeout(logoutTimer.current);
-    // eslint-disable-next-line
-  }, [navigate, onLogout]);
-
-  // Polling progress
-  useEffect(() => {
-    let interval;
-    if (embedLoading) {
-      interval = setInterval(async () => {
-        try {
-          const res = await fetch("http://localhost:8000/admin/embed/progress");
-          const data = await res.json();
-          setEmbedProgress(data.progress || 0);
-          if (data.status === "done" || data.progress >= 100) {
-            setEmbedLoading(false);
-            setEmbedProgress(100);
-            setMessage("Embedding telah selesai.");
-            fetchPdfs();
-            fetchEmbeddedPdfs(); // Tambahkan ini agar embedded_pdfs juga update
-          }
-        } catch {
-          // error handling
-        }
-      }, 1000);
-    }
-    return () => clearInterval(interval);
-  }, [embedLoading, token]);
+  }, [onLogout]);
 
   const handleUpload = async (e) => {
     e.preventDefault();
@@ -126,29 +78,45 @@ export default function AdminDashboard({ token, onLogout }) {
     setUploading(false);
   };
 
-  // Handler hapus file & vektor
   const handleDelete = async (filename) => {
     if (!window.confirm(`Hapus file & vektor untuk ${filename}?`)) return;
     setMessage("");
     try {
       const res = await deleteFileAndVector(filename, token);
       setMessage(res.detail || "File & vektor dihapus.");
-      fetchPdfs();
-      fetchEmbeddedPdfs(); // Tambahkan ini agar embedded_pdfs juga update
+      let tries = 0;
+      const poll = setInterval(async () => {
+        const latest = await listPdfs(token);
+        setPdfs(Array.isArray(latest) ? latest : []);
+        tries++;
+        if (!latest.includes(filename) || tries > 7) {
+          clearInterval(poll);
+          fetchPdfs(); // pastikan state terbaru
+        }
+      }, 700);
+      fetchEmbeddedPdfs();
     } catch (err) {
       setMessage(err.message || "Gagal menghapus file & vektor.");
     }
   };
 
-  // Handler hapus embedded PDF
   const handleDeleteEmbedded = async (filename) => {
     if (!window.confirm(`Hapus file embedded ${filename}?`)) return;
     setMessage("");
     try {
       const res = await deleteEmbeddedPdf(filename, token);
       setMessage(res.detail || "Embedded PDF dihapus.");
-      fetchEmbeddedPdfs();
-      fetchPdfs(); // Tambahkan ini agar daftar pdfs juga update jika file dipindahkan kembali
+      let tries = 0;
+      const poll = setInterval(async () => {
+        const latest = await listEmbeddedPdfs(token);
+        setEmbeddedPdfs(Array.isArray(latest) ? latest : []);
+        tries++;
+        if (!latest.includes(filename) || tries > 7) {
+          clearInterval(poll);
+          fetchEmbeddedPdfs(); // pastikan state terbaru
+        }
+      }, 700);
+      fetchPdfs();
     } catch (err) {
       setMessage(err.message || "Gagal menghapus embedded PDF.");
     }
@@ -167,59 +135,62 @@ export default function AdminDashboard({ token, onLogout }) {
     }
   };
 
+  // Tambahkan polling progress embedding dengan BASE_URL
+  useEffect(() => {
+    let interval;
+    if (embedLoading) {
+      interval = setInterval(async () => {
+        try {
+          const res = await fetch(`${BASE_URL}/admin/embed/progress`);
+          const data = await res.json();
+          setEmbedProgress(data.progress || 0);
+          if (data.status === "done") {
+            setEmbedLoading(false);
+            setTimeout(() => {
+              fetchEmbeddedPdfs();
+              fetchPdfs();
+            }, 500);
+            clearInterval(interval);
+          }
+        } catch {}
+      }, 1200);
+    }
+    return () => clearInterval(interval);
+  }, [embedLoading]);
+
   return (
-    <Box
-      maxW="800px"
-      w="100%"
-      mx="auto"
-      mt={10}
-      p={6}
-      borderRadius="xl"
-      boxShadow="lg"
-      bg="background.100"
-      border="1px solid"
-      borderColor="primary.500"
-    >
-      <Flex justify="space-between" align="center" mb={6}>
-        <Text fontSize="2xl" fontWeight="bold" color="primary.500">
-          Admin Dashboard
-        </Text>
-        <Button
-          onClick={onLogout}
-          colorScheme="secondary"
-          bg="secondary.500"
-          color="white"
-          _hover={{ bg: "primary.500" }}
-          size="sm"
-        >
-          Logout
-        </Button>
-      </Flex>
-
-      {/* Info Aturan Upload */}
-      <Flex align="flex-start" mb={6}>
-        <Box fontSize={22} color="primary.500" mr={3} userSelect="none">
-          ℹ️
-        </Box>
-        <Box fontSize={15} color="text.900">
-          <b>Aturan upload file PDF:</b>
-          <ul style={{ margin: "4px 0 0 18px", padding: 0 }}>
-            <li>
-              Nama file <b>tidak boleh mengandung spasi</b> atau karakter aneh (&amp;, %, #, dll).
-            </li>
-            <li>Ukuran file maksimal 10 MB.</li>
-            <li>Format file harus <b>.pdf</b>.</li>
-            <li>Pastikan isi dokumen jelas dan tidak rusak.</li>
-            <li>
-              Setelah upload, klik <b>Embedding Ulang</b> agar file bisa digunakan chatbot.
-            </li>
-          </ul>
-        </Box>
-      </Flex>
-
-      {/* Upload PDF */}
-      <form onSubmit={handleUpload}>
-        <Flex mb={4} gap={2}>
+    <div className="min-h-screen w-full flex flex-col items-center justify-start bg-gradient-to-b from-purple-100 via-pink-100 to-white py-8 px-2">
+      <div className="w-full max-w-3xl mx-auto bg-white/90 shadow-2xl rounded-3xl border border-purple-300 p-6 md:p-10 flex flex-col gap-6">
+        {/* Header */}
+        <div className="flex flex-col items-center gap-2 mb-2">
+          <span className="text-purple-700 text-4xl md:text-5xl mb-1">★</span>
+          <span className="text-3xl md:text-4xl font-extrabold text-purple-800 text-center drop-shadow">Admin Dashboard</span>
+        </div>
+        {/* Logout Button (always visible, right top) */}
+        <div className="flex justify-end mb-2">
+          <button
+            onClick={onLogout}
+            className="bg-gradient-to-r from-purple-500 to-pink-500 text-white font-semibold py-2 px-6 rounded-xl shadow hover:from-purple-600 hover:to-pink-600 transition text-base focus:outline-none focus:ring-2 focus:ring-purple-300"
+          >
+            Logout
+          </button>
+        </div>
+        {/* Info Section */}
+        <div className="flex items-start gap-3 bg-purple-50 border border-purple-200 rounded-xl p-4 shadow-sm">
+          <span className="text-3xl text-purple-600 select-none">ℹ️</span>
+          <div className="text-base text-gray-900">
+            <b>Aturan upload file PDF:</b>
+            <ul className="list-disc ml-5 mt-1 space-y-1 text-sm md:text-base">
+              <li>Nama file <b>tidak boleh mengandung spasi</b> atau karakter aneh (&, %, #, dll).</li>
+              <li>Ukuran file maksimal 10 MB.</li>
+              <li>Format file harus <b>.pdf</b>.</li>
+              <li>Pastikan isi dokumen jelas dan tidak rusak.</li>
+              <li>Setelah upload, klik <b>Embedding Ulang</b> agar file bisa digunakan chatbot.</li>
+            </ul>
+          </div>
+        </div>
+        {/* Upload Form */}
+        <form onSubmit={handleUpload} className="flex flex-col md:flex-row gap-3 items-center mb-2">
           <input
             type="file"
             accept="application/pdf"
@@ -228,137 +199,96 @@ export default function AdminDashboard({ token, onLogout }) {
             onChange={e => setFile(e.target.files[0])}
             disabled={uploading || embedLoading}
           />
-          <Button
-            colorScheme="secondary"
-            bg="secondary.500"
-            color="white"
-            _hover={{ bg: "accent.500" }}
+          <button
+            type="button"
+            className="bg-yellow-400 hover:bg-yellow-500 text-white font-bold px-5 py-2 rounded-xl shadow transition disabled:opacity-60"
             onClick={() => fileInputRef.current.click()}
             disabled={uploading || embedLoading}
           >
             Pilih File PDF
-          </Button>
-          <Text flex={1} color="primary.500" fontWeight="medium" isTruncated>
+          </button>
+          <span className="flex-1 text-purple-700 font-medium truncate text-center md:text-left">
             {file ? file.name : "Belum ada file dipilih"}
-          </Text>
-          <Button
+          </span>
+          <button
             type="submit"
-            colorScheme="primary"
-            bg="primary.500"
-            color="white"
-            _hover={{ bg: "accent.500" }}
-            isLoading={uploading}
+            className="bg-purple-600 hover:bg-purple-700 text-white font-bold px-5 py-2 rounded-xl shadow transition disabled:opacity-60"
             disabled={uploading || !file || embedLoading}
           >
-            Upload PDF
-          </Button>
-        </Flex>
+            {uploading ? "Uploading..." : "Upload PDF"}
+          </button>
+        </form>
         {uploading && <ProgressBar progress={progress} />}
-      </form>
-
-      {/* Embedding Ulang */}
-      <Button
-        onClick={handleEmbed}
-        colorScheme="primary"
-        bg="primary.500"
-        color="white"
-        _hover={{ bg: "accent.500" }}
-        isLoading={embedLoading}
-        mb={4}
-        disabled={embedLoading}
-      >
-        {embedLoading ? "Memproses..." : "Embedding Ulang"}
-      </Button>
-      {embedLoading && (
-        <Box my={3}>
-          <ProgressBar progress={embedProgress} />
-          <Text color="primary.500" fontWeight="medium">
-            Embedding sedang diproses: {embedProgress}%
-          </Text>
-        </Box>
-      )}
-
-      {message && (
-        <Box my={3} color="success.500" fontWeight="medium">
-          {message}
-        </Box>
-      )}
-
-      {/* Daftar PDF */}
-      <Box mt={6}>
-        <Text fontWeight="bold" color="primary.500" mb={2}>
-          Daftar PDF
-        </Text>
-        <VStack align="stretch" spacing={2}>
-          {/* Pastikan pdfs array sebelum map */}
-          {(!Array.isArray(pdfs) || pdfs.length === 0) && (
-            <Text color="text.700">Tidak ada file PDF.</Text>
-          )}
-          {Array.isArray(pdfs) && pdfs.map((pdf) => (
-            <Flex
-              key={pdf}
-              align="center"
-              justify="space-between"
-              bg="white"
-              borderRadius="md"
-              px={4}
-              py={2}
-              border="1px solid"
-              borderColor="primary.500"
-            >
-              <Text color="primary.500" fontWeight="medium">
-                {pdf}
-              </Text>
-              <Button
-                size="sm"
-                colorScheme="red"
-                variant="solid"
-                onClick={() => handleDelete(pdf)}
-                disabled={uploading || embedLoading}
+        {/* Embedding Button */}
+        <button
+          onClick={handleEmbed}
+          className="bg-gradient-to-r from-pink-500 to-purple-600 text-white font-bold py-3 rounded-xl shadow-lg hover:from-pink-600 hover:to-purple-700 transition mb-2 w-full text-lg disabled:opacity-60"
+          disabled={embedLoading}
+        >
+          {embedLoading ? "Memproses..." : "Embedding Ulang"}
+        </button>
+        {embedLoading && (
+          <div className="my-3">
+            <ProgressBar progress={embedProgress} />
+            <span className="text-purple-700 font-medium">Embedding sedang diproses: {embedProgress}%</span>
+          </div>
+        )}
+        {message && <div className="my-3 text-green-600 font-semibold text-center">{message}</div>}
+        {/* Daftar PDF */}
+        <div className="mt-2">
+          <span className="font-bold text-purple-700 mb-2 block text-lg">Daftar PDF</span>
+          <div className="flex flex-col gap-2">
+            {(!Array.isArray(pdfs) || pdfs.length === 0) && (
+              <span className="text-gray-700">Tidak ada file PDF.</span>
+            )}
+            {Array.isArray(pdfs) && pdfs.map((pdf) => (
+              <div
+                key={pdf}
+                className="flex items-center justify-between bg-white rounded-lg px-4 py-2 border border-purple-200 shadow-sm hover:shadow-md transition"
               >
-                Hapus
-              </Button>
-            </Flex>
-          ))}
-        </VStack>
-      </Box>
-      {/* Daftar PDF yang sudah di-embedding */}
-      <Box mt={6}>
-        <Text fontWeight="bold" color="green.600" mb={2}>
-          Daftar PDF yang sudah di-embedding
-        </Text>
-        <VStack align="stretch" spacing={2}>
-          {(!Array.isArray(embeddedPdfs) || embeddedPdfs.length === 0) && (
-            <Text color="text.700">Tidak ada file embedded.</Text>
-          )}
-          {Array.isArray(embeddedPdfs) && embeddedPdfs.map((pdf) => (
-            <Flex
-              key={pdf}
-              align="center"
-              justify="space-between"
-              bg="#f0fff4"
-              borderRadius="md"
-              px={4}
-              py={2}
-              border="1px solid"
-              borderColor="green.400"
-            >
-              <Text color="green.700" fontWeight="medium">
-                {pdf}
-              </Text>
-              <Button
-                size="sm"
-                colorScheme="red"
-                variant="outline"
-                onClick={() => handleDeleteEmbedded(pdf)}
-                disabled={uploading || embedLoading}
+                <span className="text-purple-700 font-medium truncate flex items-center gap-2">
+                  <svg className="w-5 h-5 text-purple-400" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>
+                  {pdf}
+                </span>
+                <button
+                  className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded-lg shadow text-sm transition"
+                  onClick={() => handleDelete(pdf)}
+                  disabled={uploading || embedLoading}
+                >
+                  Hapus
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+        {/* Daftar Embedded PDF */}
+        <div className="mt-2">
+          <span className="font-bold text-green-600 mb-2 block text-lg">Daftar PDF yang sudah di-embedding</span>
+          <div className="flex flex-col gap-2">
+            {(!Array.isArray(embeddedPdfs) || embeddedPdfs.length === 0) && (
+              <span className="text-gray-700">Tidak ada file embedded.</span>
+            )}
+            {Array.isArray(embeddedPdfs) && embeddedPdfs.map((pdf) => (
+              <div
+                key={pdf}
+                className="flex items-center justify-between bg-green-50 rounded-lg px-4 py-2 border border-green-300 shadow-sm hover:shadow-md transition"
               >
-                Hapus
-              </Button>
-            </Flex>
-          ))}
-        </VStack>
-      </Box>
-    </Box>
+                <span className="text-green-700 font-medium truncate flex items-center gap-2">
+                  <svg className="w-5 h-5 text-green-400" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>
+                  {pdf}
+                </span>
+                <button
+                  className="border border-red-500 text-red-500 px-3 py-1 rounded-lg hover:bg-red-100 text-sm shadow transition"
+                  onClick={() => handleDeleteEmbedded(pdf)}
+                  disabled={uploading || embedLoading}
+                >
+                  Hapus
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
