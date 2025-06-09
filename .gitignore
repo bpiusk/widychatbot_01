@@ -17,5 +17,4 @@ node_modules/
 pdfs/*.pdf
 backend/vectorstore/
 debug_tools/
-embedded_pdfs/
 prompts/
