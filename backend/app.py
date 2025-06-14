@@ -1,4 +1,4 @@
-from fastapi import FastAPI, UploadFile, File, Form, Depends, HTTPException, BackgroundTasks, Path
+from fastapi import FastAPI, UploadFile, File, Form, Depends, HTTPException, BackgroundTasks, Path, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import os
@@ -8,6 +8,8 @@ from pdf_manager import save_pdf, delete_pdf, list_pdfs, list_embedded_pdfs
 from auth import authenticate_admin, create_access_token, get_current_admin
 import logging
 from dotenv import load_dotenv
+from fastapi.responses import JSONResponse
+import hashlib
 
 # Variabel global untuk progress embedding
 embedding_progress = {"progress": 0, "status": "idle"}
@@ -36,9 +38,22 @@ class ChatRequest(BaseModel):
 class ChatResponse(BaseModel):
     answer: str
 
+# Simpan conversation chain per session_id
+conversation_sessions = {}
+
+def get_session_id(request: Request):
+    # Gunakan IP + user-agent sebagai session_id sederhana (bisa diganti dengan cookie/session real)
+    ip = request.client.host if request.client else "unknown"
+    ua = request.headers.get("user-agent", "unknown")
+    raw = f"{ip}-{ua}"
+    return hashlib.sha256(raw.encode()).hexdigest()
+
 @app.post("/chat", response_model=ChatResponse)
-async def chat(request: ChatRequest):
-    conversation = get_conversation_chain_with_hybrid_multiquery_llm(openai_api_key)
+async def chat(request: ChatRequest, req: Request):
+    session_id = get_session_id(req)
+    if session_id not in conversation_sessions:
+        conversation_sessions[session_id] = get_conversation_chain_with_hybrid_multiquery_llm(openai_api_key)
+    conversation = conversation_sessions[session_id]
     response = conversation({"question": request.question})
     answer = response["chat_history"][-1].content
     return {"answer": answer}

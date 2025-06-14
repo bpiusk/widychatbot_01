@@ -6,6 +6,7 @@ from langchain.prompts import PromptTemplate
 from sklearn.feature_extraction.text import TfidfVectorizer
 import numpy as np
 from utils.postprocess import postprocess_context, postprocess_answer
+import time
 
 # --- INISIALISASI SEKALI DI AWAL ---
 embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-mpnet-base-v2")
@@ -19,10 +20,10 @@ QA_PROMPT = PromptTemplate(
 )
 
 
-def get_conversation_chain_with_hybrid_multiquery_llm(openai_api_key, n_paraphrase=3, alpha=0.5, top_k=5):
+def get_conversation_chain_with_hybrid_multiquery_llm(openai_api_key, n_paraphrase=8, alpha=0.6, top_k=15):
     global llm
     if llm is None or getattr(llm, "openai_api_key", None) != openai_api_key:
-        llm = ChatOpenAI(openai_api_key=openai_api_key, model_name="gpt-3.5-turbo", temperature=0.3)
+        llm = ChatOpenAI(openai_api_key=openai_api_key, model_name="gpt-3.5-turbo", temperature=0.5)
     memory = ConversationBufferMemory(memory_key="chat_history", return_messages=True)
 
     # Ambil semua chunk text dan simpan vectorizer global (cache di memory, update jika vectorstore berubah)
@@ -34,7 +35,7 @@ def get_conversation_chain_with_hybrid_multiquery_llm(openai_api_key, n_paraphra
     tfidf_matrix = vectorizer.fit_transform(chunk_texts)
 
     def generate_paraphrases(question, n=n_paraphrase):
-        para_llm = ChatOpenAI(openai_api_key=openai_api_key, model_name="gpt-3.5-turbo", temperature=0.3)
+        para_llm = ChatOpenAI(openai_api_key=openai_api_key, model_name="gpt-3.5-turbo", temperature=0.6)
         prompt = (
             f"Buat {n} parafrase berbeda untuk pertanyaan berikut dalam bahasa Indonesia. "
             f"Pisahkan setiap parafrase dengan baris baru.\nPertanyaan: {question}\nParafrase:"
@@ -42,23 +43,41 @@ def get_conversation_chain_with_hybrid_multiquery_llm(openai_api_key, n_paraphra
         result = para_llm.predict(prompt)
         return [question] + [p.strip() for p in result.split('\n') if p.strip()]
 
-    def hybrid_multiquery_retrieve(question, top_k=top_k, alpha=alpha):
-        multi_queries = generate_paraphrases(question, n=n_paraphrase)
+    def format_history(chat_history, last_question=None):
+        # Format seluruh riwayat percakapan sebagai string
+        history_lines = []
+        for msg in chat_history:
+            if hasattr(msg, "type"):
+                if msg.type == "human":
+                    history_lines.append(f"User: {msg.content}")
+                elif msg.type == "ai":
+                    history_lines.append(f"Bot: {msg.content}")
+            elif hasattr(msg, "role"):
+                if msg.role == "user":
+                    history_lines.append(f"User: {msg.content}")
+                elif msg.role == "assistant":
+                    history_lines.append(f"Bot: {msg.content}")
+        if last_question:
+            history_lines.append(f"User: {last_question}")
+        return "\n".join(history_lines).strip()
+
+    def hybrid_multiquery_retrieve(question, chat_history=None, top_k=top_k, alpha=alpha):
+        # Gabungkan seluruh riwayat ke dalam query
+        question_for_retrieval = format_history(chat_history, last_question=question) if chat_history else question
+        multi_queries = generate_paraphrases(question_for_retrieval, n=n_paraphrase)
         print("Multiquery (paraphrase) yang digunakan:", multi_queries)
-        # Skor hybrid untuk setiap chunk, dari semua parafrase
         all_scores = []
         all_embeddings = vectorstore._collection.get(include=["embeddings"])["embeddings"]
+        question_embeddings = []
         for q in multi_queries:
-            # TF-IDF
             query_tfidf = vectorizer.transform([q])
             tfidf_scores = (tfidf_matrix * query_tfidf.T).toarray().flatten()
-            # Vector
             q_emb = embeddings.embed_query(q)
+            question_embeddings.append(q_emb)
             vector_scores = [
                 np.dot(q_emb, np.array(doc_emb)) / (np.linalg.norm(q_emb) * np.linalg.norm(doc_emb))
                 for doc_emb in all_embeddings
             ]
-            # Hybrid
             hybrid_scores = alpha * tfidf_scores + (1 - alpha) * np.array(vector_scores)
             all_scores.append(hybrid_scores)
             print(f"\nQuery: {q}")
@@ -73,9 +92,20 @@ def get_conversation_chain_with_hybrid_multiquery_llm(openai_api_key, n_paraphra
         for idx in top_idx:
             print(f"Hybrid score: {final_scores[idx]:.4f}")
             print("Chunk:", all_metas[idx].get('text', '')[:200])  # tampilkan 200 karakter pertama
+            # Tambahan: tampilkan nama file PDF sumber dan cosine similarity
+            source_file = all_metas[idx].get('source', 'Tidak diketahui')
+            print(f"File PDF terpilih: {source_file}")
+            # Jika ingin menampilkan cosine similarity vector saja:
+            print(f"Cosine similarity (vector): {vector_scores[idx]:.4f}")
+            # Tampilkan vektor embedding pertanyaan (parafrase pertama) dan embedding dokumen terpilih
+            print("Vektor embedding pertanyaan (10 angka pertama):", np.array(question_embeddings[0])[:10])
+            print("Vektor embedding dokumen terpilih (10 angka pertama):", np.array(all_embeddings[idx])[:10])
             class Doc:
                 def __init__(self, meta):
                     self.page_content = meta.get('text', '')
+                    self.source = meta.get('source', '')
+                    self.hybrid_score = final_scores[idx]
+                    self.cosine_similarity = vector_scores[idx]
             docs.append(Doc(all_metas[idx]))
         return docs
 
@@ -86,12 +116,19 @@ def get_conversation_chain_with_hybrid_multiquery_llm(openai_api_key, n_paraphra
             self.prompt = prompt
         def __call__(self, inputs):
             question = inputs["question"]
-            docs = hybrid_multiquery_retrieve(question, top_k=top_k, alpha=alpha)
+            chat_history = self.memory.chat_memory.messages if hasattr(self.memory, "chat_memory") else []
+
+            # Gunakan seluruh riwayat untuk retrieval
+            docs = hybrid_multiquery_retrieve(question, chat_history=chat_history, top_k=top_k, alpha=alpha)
             context = "\n".join([d.page_content for d in docs])
-            context = postprocess_context(context)  # Post-processing context sebelum ke LLM
-            prompt_str = self.prompt.format(context=context, question=question)
+            context = postprocess_context(context)
+
+            # Gabungkan seluruh riwayat ke prompt LLM
+            full_history = format_history(chat_history, last_question=question)
+            prompt_str = self.prompt.format(context=context, question=full_history)
             answer = self.llm.predict(prompt_str)
-            answer = postprocess_answer(answer)  # Post-processing jawaban sebelum ke user
+            answer = postprocess_answer(answer)
+
             self.memory.save_context({"input": question}, {"output": answer})
             return {"answer": answer, "chat_history": self.memory.chat_memory.messages}
 

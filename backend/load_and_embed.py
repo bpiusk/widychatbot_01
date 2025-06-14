@@ -27,7 +27,7 @@ if __name__ == "__main__":
                 "source": filename,
                 "text": chunk,
                 "chunk_index": idx,
-                "tags": ", ".join(tags)
+                "tags": ", ".join(tags) if tags else ""
             }
             all_metadatas.append(metadata)
 

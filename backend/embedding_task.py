@@ -6,6 +6,7 @@ def embed_task(embedding_progress):
     import os
     import time
     import shutil
+    import re
 
     embedding_progress["progress"] = 0
     embedding_progress["status"] = "running"
@@ -29,10 +30,16 @@ def embed_task(embedding_progress):
     for filename, raw_text in pdf_texts.items():
         chunks = split_text(raw_text)
         all_chunks.extend(chunks)
-        all_metadatas.extend([
-            {"source": filename, "text": chunk, "chunk_index": idx}
-            for idx, chunk in enumerate(chunks)
-        ])
+        for idx, chunk in enumerate(chunks):
+            tag_match = re.search(r'Tag:\s*(.*)', chunk)
+            tags = [t.strip() for t in tag_match.group(1).split(',')] if tag_match else []
+            metadata = {
+                "source": filename,
+                "text": chunk,
+                "chunk_index": idx,
+                "tags": ", ".join(tags) if tags else ""
+            }
+            all_metadatas.append(metadata)
         processed += 1
         embedding_progress["progress"] = int(processed / total * 80)
         # Pindahkan file PDF ke embedded_pdfs setelah selesai di-embedding

@@ -24,6 +24,8 @@ export default function AdminDashboard({ token, onLogout }) {
   const [embeddedPdfs, setEmbeddedPdfs] = useState([]);
   const logoutTimer = useRef(null);
   const fileInputRef = useRef();
+  const [deletingFile, setDeletingFile] = useState(null); // Tambahkan state ini
+  const [deletingEmbeddedFile, setDeletingEmbeddedFile] = useState(null); // Tambahkan state ini untuk embedded
 
   useEffect(() => {
     if (!token) {
@@ -81,6 +83,7 @@ export default function AdminDashboard({ token, onLogout }) {
   const handleDelete = async (filename) => {
     if (!window.confirm(`Hapus file & vektor untuk ${filename}?`)) return;
     setMessage("");
+    setDeletingFile(filename); // Set file yang sedang dihapus
     try {
       const res = await deleteFileAndVector(filename, token);
       setMessage(res.detail || "File & vektor dihapus.");
@@ -92,17 +95,20 @@ export default function AdminDashboard({ token, onLogout }) {
         if (!latest.includes(filename) || tries > 7) {
           clearInterval(poll);
           fetchPdfs(); // pastikan state terbaru
+          setDeletingFile(null); // Reset setelah selesai
         }
       }, 700);
       fetchEmbeddedPdfs();
     } catch (err) {
       setMessage(err.message || "Gagal menghapus file & vektor.");
+      setDeletingFile(null); // Reset jika gagal
     }
   };
 
   const handleDeleteEmbedded = async (filename) => {
     if (!window.confirm(`Hapus file embedded ${filename}?`)) return;
     setMessage("");
+    setDeletingEmbeddedFile(filename); // Set file embedded yang sedang dihapus
     try {
       const res = await deleteEmbeddedPdf(filename, token);
       setMessage(res.detail || "Embedded PDF dihapus.");
@@ -114,11 +120,13 @@ export default function AdminDashboard({ token, onLogout }) {
         if (!latest.includes(filename) || tries > 7) {
           clearInterval(poll);
           fetchEmbeddedPdfs(); // pastikan state terbaru
+          setDeletingEmbeddedFile(null); // Reset setelah selesai
         }
       }, 700);
       fetchPdfs();
     } catch (err) {
       setMessage(err.message || "Gagal menghapus embedded PDF.");
+      setDeletingEmbeddedFile(null); // Reset jika gagal
     }
   };
 
@@ -169,7 +177,14 @@ export default function AdminDashboard({ token, onLogout }) {
         {/* Logout Button (always visible, right top) */}
         <div className="flex justify-end mb-2">
           <button
-            onClick={onLogout}
+            onClick={() => { // <--- Tambahkan fungsi anonim di sini
+              if (window.confirm("Apakah Anda yakin ingin logout?")) {
+                if (onLogout) {
+                  onLogout();
+                }
+                window.location.replace("/admin/login");
+              }
+            }}
             className="bg-gradient-to-r from-purple-500 to-pink-500 text-white font-semibold py-2 px-6 rounded-xl shadow hover:from-purple-600 hover:to-pink-600 transition text-base focus:outline-none focus:ring-2 focus:ring-purple-300"
           >
             Logout
@@ -223,7 +238,7 @@ export default function AdminDashboard({ token, onLogout }) {
         <button
           onClick={handleEmbed}
           className="bg-gradient-to-r from-pink-500 to-purple-600 text-white font-bold py-3 rounded-xl shadow-lg hover:from-pink-600 hover:to-purple-700 transition mb-2 w-full text-lg disabled:opacity-60"
-          disabled={embedLoading}
+          disabled={embedLoading || pdfs.length === 0}
         >
           {embedLoading ? "Memproses..." : "Embedding Ulang"}
         </button>
@@ -250,12 +265,12 @@ export default function AdminDashboard({ token, onLogout }) {
                   <svg className="w-5 h-5 text-purple-400" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>
                   {pdf}
                 </span>
-                <button
-                  className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded-lg shadow text-sm transition"
+               <button
+                  className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded-lg shadow text-sm transition disabled:opacity-60 disabled:cursor-not-allowed" // Tambahkan disabled style
                   onClick={() => handleDelete(pdf)}
-                  disabled={uploading || embedLoading}
+                  disabled={uploading || embedLoading || deletingFile === pdf} // Tambahkan kondisi disabled
                 >
-                  Hapus
+                  {deletingFile === pdf ? "Menghapus..." : "Hapus"} {/* Ubah teks */}
                 </button>
               </div>
             ))}
@@ -278,11 +293,11 @@ export default function AdminDashboard({ token, onLogout }) {
                   {pdf}
                 </span>
                 <button
-                  className="border border-red-500 text-red-500 px-3 py-1 rounded-lg hover:bg-red-100 text-sm shadow transition"
+                  className="border border-red-500 text-red-500 px-3 py-1 rounded-lg hover:bg-red-100 text-sm shadow transition disabled:opacity-60 disabled:cursor-not-allowed" // Tambahkan disabled style
                   onClick={() => handleDeleteEmbedded(pdf)}
-                  disabled={uploading || embedLoading}
+                  disabled={uploading || embedLoading || deletingEmbeddedFile === pdf} // Tambahkan kondisi disabled
                 >
-                  Hapus
+                  {deletingEmbeddedFile === pdf ? "Menghapus..." : "Hapus"} {/* Ubah teks */}
                 </button>
               </div>
             ))}
