@@ -1,7 +1,8 @@
+// API utilitas untuk komunikasi frontend dengan backend
 export const BASE_URL = "http://localhost:8000";
 //const BASE_URL = process.env.REACT_APP_BASE_URL;
 
-// Chatbot user
+// Chatbot user: Kirim pertanyaan ke endpoint /chat
 export async function chat(question) {
   const res = await fetch(`${BASE_URL}/chat`, {
     method: "POST",
@@ -11,7 +12,7 @@ export async function chat(question) {
   return res.json(); // res.answer
 }
 
-// Admin login
+// Admin login: Kirim username & password ke endpoint /admin/login
 export async function adminLogin(username, password) {
   const formData = new URLSearchParams();
   formData.append("username", username);
@@ -25,7 +26,7 @@ export async function adminLogin(username, password) {
   return res.json();
 }
 
-// Upload PDF (admin)
+// Upload PDF (admin): Upload file PDF ke backend
 export async function uploadPdf(file, token, onProgress) {
   const formData = new FormData();
   formData.append("file", file);
@@ -54,7 +55,7 @@ export async function uploadPdf(file, token, onProgress) {
   });
 }
 
-// Delete PDF (admin)
+// Delete PDF (admin): Hapus file PDF dari backend
 export async function deletePdf(filename, token) {
   const res = await fetch(`${BASE_URL}/admin/delete/${filename}`, {
     method: "DELETE",
@@ -67,7 +68,7 @@ export async function deletePdf(filename, token) {
   return res.json();
 }
 
-// Hapus PDF & vektor (admin)
+// Hapus PDF & vektor (admin): Hapus file PDF dan vektor embedding
 export async function deleteFileAndVector(filename, token) {
   const res = await fetch(
     `${BASE_URL}/admin/delete-file-and-vector/${filename}`,
@@ -83,7 +84,7 @@ export async function deleteFileAndVector(filename, token) {
   return res.json();
 }
 
-// List PDF (admin)
+// List PDF (admin): Ambil daftar file PDF
 export async function listPdfs(token) {
   const res = await fetch(`${BASE_URL}/admin/list`, {
     method: "GET",
@@ -92,7 +93,7 @@ export async function listPdfs(token) {
   return res.json(); // [ "file1.pdf", ... ]
 }
 
-// Trigger embedding ulang (admin)
+// Trigger embedding ulang (admin): Proses ulang embedding semua PDF
 export async function reEmbed(token) {
   const res = await fetch(`${BASE_URL}/admin/embed`, {
     method: "POST",
@@ -114,7 +115,7 @@ export async function debugClearVectors(token) {
   return res.json();
 }
 
-// List embedded PDF (admin)
+// List embedded PDF (admin): Ambil daftar PDF yang sudah di-embedding
 export async function listEmbeddedPdfs(token) {
   const res = await fetch(`${BASE_URL}/admin/list-embedded`, {
     method: "GET",
@@ -123,7 +124,7 @@ export async function listEmbeddedPdfs(token) {
   return res.json(); // [ "file1.pdf", ... ]
 }
 
-// Delete embedded PDF (admin)
+// Delete embedded PDF (admin): Hapus file embedded dari backend
 export async function deleteEmbeddedPdf(filename, token) {
   const res = await fetch(`${BASE_URL}/admin/delete-embedded/${filename}`, {
     method: "DELETE",

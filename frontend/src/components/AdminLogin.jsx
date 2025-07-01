@@ -1,12 +1,15 @@
+// Komponen login admin untuk autentikasi
 import React, { useState } from "react";
 import { adminLogin } from "../api";
 
 export default function AdminLogin({ onLogin }) {
+  // State untuk username, password, loading, dan error
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
+  // Fungsi handle login admin
   const handleLogin = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -33,7 +36,7 @@ export default function AdminLogin({ onLogin }) {
           </svg>
 
           <h2 className="text-3xl font-extrabold text-purple-800 text-center drop-shadow">
-            Admin Login
+            Login Admin
           </h2>
         </div>
         <form

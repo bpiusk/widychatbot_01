@@ -1,3 +1,5 @@
+# Fungsi background task untuk proses embedding ulang semua PDF
+
 def embed_task(embedding_progress):
     from utils.pdf_reader import load_all_pdfs
     from utils.splitter import split_text
@@ -8,6 +10,7 @@ def embed_task(embedding_progress):
     import shutil
     import re
 
+    # Set status progress
     embedding_progress["progress"] = 0
     embedding_progress["status"] = "running"
 
@@ -16,6 +19,7 @@ def embed_task(embedding_progress):
     if not os.path.exists(embedded_folder):
         os.makedirs(embedded_folder)
 
+    # Memuat semua PDF
     pdf_texts = load_all_pdfs(pdf_folder)
     total = len(pdf_texts)
     if total == 0:
@@ -27,6 +31,7 @@ def embed_task(embedding_progress):
     all_metadatas = []
     processed = 0
 
+    # Proses setiap file PDF
     for filename, raw_text in pdf_texts.items():
         chunks = split_text(raw_text)
         all_chunks.extend(chunks)
@@ -48,6 +53,7 @@ def embed_task(embedding_progress):
         if os.path.exists(src_path):
             shutil.move(src_path, dst_path)
 
+    # Proses embedding dan simpan vectorstore
     embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-mpnet-base-v2")
     vectorstore = Chroma.from_texts(
         all_chunks,

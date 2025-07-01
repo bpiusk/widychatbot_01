@@ -1,7 +1,9 @@
+// Komponen dashboard admin untuk mengelola file PDF dan proses embedding
 import React, { useState, useEffect, useRef } from "react";
 import { uploadPdf, listPdfs, deletePdf, reEmbed, deleteFileAndVector, listEmbeddedPdfs, deleteEmbeddedPdf } from "../api";
 import { BASE_URL } from "../api";
 
+// Komponen progress bar upload/embedding
 export function ProgressBar({ progress }) {
   return (
     <div className="w-full bg-gray-200 rounded h-3 mb-2">
@@ -14,6 +16,7 @@ export function ProgressBar({ progress }) {
 }
 
 export default function AdminDashboard({ token, onLogout }) {
+  // State untuk daftar PDF, file yang diupload, status upload, dsb
   const [pdfs, setPdfs] = useState([]);
   const [file, setFile] = useState(null);
   const [uploading, setUploading] = useState(false);
@@ -24,9 +27,10 @@ export default function AdminDashboard({ token, onLogout }) {
   const [embeddedPdfs, setEmbeddedPdfs] = useState([]);
   const logoutTimer = useRef(null);
   const fileInputRef = useRef();
-  const [deletingFile, setDeletingFile] = useState(null); // Tambahkan state ini
-  const [deletingEmbeddedFile, setDeletingEmbeddedFile] = useState(null); // Tambahkan state ini untuk embedded
+  const [deletingFile, setDeletingFile] = useState(null); // File yang sedang dihapus
+  const [deletingEmbeddedFile, setDeletingEmbeddedFile] = useState(null); // Embedded file yang sedang dihapus
 
+  // Cek token admin, redirect jika tidak ada
   useEffect(() => {
     if (!token) {
       if (onLogout) onLogout();
@@ -34,6 +38,7 @@ export default function AdminDashboard({ token, onLogout }) {
     }
   }, [token, onLogout]);
 
+  // Ambil daftar PDF dari server
   const fetchPdfs = async () => {
     try {
       const res = await listPdfs(token);
@@ -44,6 +49,7 @@ export default function AdminDashboard({ token, onLogout }) {
     }
   };
 
+  // Ambil daftar PDF yang sudah di-embedding
   const fetchEmbeddedPdfs = async () => {
     try {
       const res = await listEmbeddedPdfs(token);
@@ -53,6 +59,7 @@ export default function AdminDashboard({ token, onLogout }) {
     }
   };
 
+  // Inisialisasi data dan timer logout otomatis
   useEffect(() => {
     fetchPdfs();
     fetchEmbeddedPdfs();
@@ -63,6 +70,7 @@ export default function AdminDashboard({ token, onLogout }) {
     return () => clearTimeout(logoutTimer.current);
   }, [onLogout]);
 
+  // Handle upload file PDF
   const handleUpload = async (e) => {
     e.preventDefault();
     if (!file || embedLoading) return;
@@ -80,10 +88,11 @@ export default function AdminDashboard({ token, onLogout }) {
     setUploading(false);
   };
 
+  // Handle hapus file PDF & vektor
   const handleDelete = async (filename) => {
     if (!window.confirm(`Hapus file & vektor untuk ${filename}?`)) return;
     setMessage("");
-    setDeletingFile(filename); // Set file yang sedang dihapus
+    setDeletingFile(filename);
     try {
       const res = await deleteFileAndVector(filename, token);
       setMessage(res.detail || "File & vektor dihapus.");
@@ -94,21 +103,22 @@ export default function AdminDashboard({ token, onLogout }) {
         tries++;
         if (!latest.includes(filename) || tries > 7) {
           clearInterval(poll);
-          fetchPdfs(); // pastikan state terbaru
-          setDeletingFile(null); // Reset setelah selesai
+          fetchPdfs();
+          setDeletingFile(null);
         }
       }, 700);
       fetchEmbeddedPdfs();
     } catch (err) {
       setMessage(err.message || "Gagal menghapus file & vektor.");
-      setDeletingFile(null); // Reset jika gagal
+      setDeletingFile(null);
     }
   };
 
+  // Handle hapus file embedded
   const handleDeleteEmbedded = async (filename) => {
     if (!window.confirm(`Hapus file embedded ${filename}?`)) return;
     setMessage("");
-    setDeletingEmbeddedFile(filename); // Set file embedded yang sedang dihapus
+    setDeletingEmbeddedFile(filename);
     try {
       const res = await deleteEmbeddedPdf(filename, token);
       setMessage(res.detail || "Embedded PDF dihapus.");
@@ -119,31 +129,32 @@ export default function AdminDashboard({ token, onLogout }) {
         tries++;
         if (!latest.includes(filename) || tries > 7) {
           clearInterval(poll);
-          fetchEmbeddedPdfs(); // pastikan state terbaru
-          setDeletingEmbeddedFile(null); // Reset setelah selesai
+          fetchEmbeddedPdfs();
+          setDeletingEmbeddedFile(null);
         }
       }, 700);
       fetchPdfs();
     } catch (err) {
       setMessage(err.message || "Gagal menghapus embedded PDF.");
-      setDeletingEmbeddedFile(null); // Reset jika gagal
+      setDeletingEmbeddedFile(null);
     }
   };
 
+  // Handle proses embedding ulang
   const handleEmbed = async () => {
     setEmbedLoading(true);
     setEmbedProgress(0);
     setMessage("");
     try {
       const res = await reEmbed(token);
-      setMessage(res.detail || "Embedding ulang diproses.");
+      setMessage(res.detail || "Embedding diproses.");
     } catch {
-      setMessage("Gagal menjalankan embedding ulang.");
+      setMessage("Gagal menjalankan embedding.");
       setEmbedLoading(false);
     }
   };
 
-  // Tambahkan polling progress embedding dengan BASE_URL
+  // Polling progress embedding dari backend
   useEffect(() => {
     let interval;
     if (embedLoading) {
@@ -172,7 +183,7 @@ export default function AdminDashboard({ token, onLogout }) {
         {/* Header */}
         <div className="flex flex-col items-center gap-2 mb-2">
           <span className="text-purple-700 text-4xl md:text-5xl mb-1">★</span>
-          <span className="text-3xl md:text-4xl font-extrabold text-purple-800 text-center drop-shadow">Admin Dashboard</span>
+          <span className="text-3xl md:text-4xl font-extrabold text-purple-800 text-center drop-shadow">Dashboard Admin</span>
         </div>
         {/* Logout Button (always visible, right top) */}
         <div className="flex justify-end mb-2">
@@ -240,7 +251,7 @@ export default function AdminDashboard({ token, onLogout }) {
           className="bg-gradient-to-r from-pink-500 to-purple-600 text-white font-bold py-3 rounded-xl shadow-lg hover:from-pink-600 hover:to-purple-700 transition mb-2 w-full text-lg disabled:opacity-60"
           disabled={embedLoading || pdfs.length === 0}
         >
-          {embedLoading ? "Memproses..." : "Embedding Ulang"}
+          {embedLoading ? "Memproses..." : "Embedding"}
         </button>
         {embedLoading && (
           <div className="my-3">

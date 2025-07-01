@@ -1,3 +1,4 @@
+// Entry point aplikasi React, render komponen App ke root
 import React from "react";
 import ReactDOM from "react-dom/client";
 import App from "./App";

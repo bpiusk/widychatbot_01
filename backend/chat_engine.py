@@ -1,3 +1,4 @@
+# Modul utama untuk logika retrieval dan chat engine chatbot
 from langchain.chat_models import ChatOpenAI
 from langchain.vectorstores import Chroma
 from langchain.embeddings import HuggingFaceEmbeddings
@@ -9,6 +10,7 @@ from utils.postprocess import postprocess_context, postprocess_answer
 import time
 
 # --- INISIALISASI SEKALI DI AWAL ---
+# Inisialisasi model embedding dan vectorstore
 embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-mpnet-base-v2")
 vectorstore = Chroma(persist_directory="vectorstore", embedding_function=embeddings)
 llm = None  # Akan diinisialisasi saat ada API key
@@ -19,6 +21,8 @@ QA_PROMPT = PromptTemplate(
     input_variables=["context", "question"]
 )
 
+# Fungsi utama untuk membuat conversation chain dengan hybrid multiquery LLM
+# n_paraphrase: jumlah parafrase, alpha: bobot hybrid, top_k: jumlah chunk diambil
 
 def get_conversation_chain_with_hybrid_multiquery_llm(openai_api_key, n_paraphrase=8, alpha=0.6, top_k=15):
     global llm
@@ -34,6 +38,7 @@ def get_conversation_chain_with_hybrid_multiquery_llm(openai_api_key, n_paraphra
     vectorizer = TfidfVectorizer()
     tfidf_matrix = vectorizer.fit_transform(chunk_texts)
 
+    # Membuat parafrase pertanyaan
     def generate_paraphrases(question, n=n_paraphrase):
         para_llm = ChatOpenAI(openai_api_key=openai_api_key, model_name="gpt-3.5-turbo", temperature=0.6)
         prompt = (
@@ -43,8 +48,8 @@ def get_conversation_chain_with_hybrid_multiquery_llm(openai_api_key, n_paraphra
         result = para_llm.predict(prompt)
         return [question] + [p.strip() for p in result.split('\n') if p.strip()]
 
+    # Format riwayat chat menjadi string
     def format_history(chat_history, last_question=None):
-        # Format seluruh riwayat percakapan sebagai string
         history_lines = []
         for msg in chat_history:
             if hasattr(msg, "type"):
@@ -61,8 +66,8 @@ def get_conversation_chain_with_hybrid_multiquery_llm(openai_api_key, n_paraphra
             history_lines.append(f"User: {last_question}")
         return "\n".join(history_lines).strip()
 
+    # Hybrid multiquery retrieval: menggabungkan tf-idf dan vector similarity
     def hybrid_multiquery_retrieve(question, chat_history=None, top_k=top_k, alpha=alpha):
-        # Gabungkan seluruh riwayat ke dalam query
         question_for_retrieval = format_history(chat_history, last_question=question) if chat_history else question
         multi_queries = generate_paraphrases(question_for_retrieval, n=n_paraphrase)
         print("Multiquery (paraphrase) yang digunakan:", multi_queries)
@@ -91,13 +96,10 @@ def get_conversation_chain_with_hybrid_multiquery_llm(openai_api_key, n_paraphra
         docs = []
         for idx in top_idx:
             print(f"Hybrid score: {final_scores[idx]:.4f}")
-            print("Chunk:", all_metas[idx].get('text', '')[:200])  # tampilkan 200 karakter pertama
-            # Tambahan: tampilkan nama file PDF sumber dan cosine similarity
+            print("Chunk:", all_metas[idx].get('text', '')[:200])
             source_file = all_metas[idx].get('source', 'Tidak diketahui')
             print(f"File PDF terpilih: {source_file}")
-            # Jika ingin menampilkan cosine similarity vector saja:
             print(f"Cosine similarity (vector): {vector_scores[idx]:.4f}")
-            # Tampilkan vektor embedding pertanyaan (parafrase pertama) dan embedding dokumen terpilih
             print("Vektor embedding pertanyaan (10 angka pertama):", np.array(question_embeddings[0])[:10])
             print("Vektor embedding dokumen terpilih (10 angka pertama):", np.array(all_embeddings[idx])[:10])
             class Doc:
@@ -109,14 +111,44 @@ def get_conversation_chain_with_hybrid_multiquery_llm(openai_api_key, n_paraphra
             docs.append(Doc(all_metas[idx]))
         return docs
 
+    # Kelas chain retrieval + LLM
     class HybridMultiQueryLLMConversationalRetrievalChain:
         def __init__(self, llm, memory, prompt):
             self.llm = llm
             self.memory = memory
             self.prompt = prompt
+
+        def _is_meta_question(self, question):
+            # Deteksi pertanyaan meta (tentang kemampuan bot)
+            meta_patterns = [
+                "informasi yang kamu miliki",
+                "apa yang bisa kamu lakukan",
+                "pengetahuan apa saja",
+                "bisa bantu apa",
+                "apa kemampuan kamu",
+                "apa saja yang kamu tahu",
+                "apa yang kamu tahu"
+            ]
+            q_lower = question.lower()
+            return any(p in q_lower for p in meta_patterns)
+
+        def _meta_answer(self):
+            # Jawaban khusus untuk pertanyaan meta
+            return (
+                "Saya adalah asisten virtual yang dapat membantu menjawab pertanyaan seputar dokumen yang telah diunggah, "
+                "termasuk ringkasan, penjelasan, pencarian informasi, dan tanya jawab terkait isi dokumen. "
+                "Silakan ajukan pertanyaan spesifik mengenai topik atau dokumen yang Anda inginkan."
+            )
+
         def __call__(self, inputs):
             question = inputs["question"]
             chat_history = self.memory.chat_memory.messages if hasattr(self.memory, "chat_memory") else []
+
+            # Cek jika pertanyaan adalah meta-question
+            if self._is_meta_question(question):
+                answer = self._meta_answer()
+                self.memory.save_context({"input": question}, {"output": answer})
+                return {"answer": answer, "chat_history": self.memory.chat_memory.messages}
 
             # Gunakan seluruh riwayat untuk retrieval
             docs = hybrid_multiquery_retrieve(question, chat_history=chat_history, top_k=top_k, alpha=alpha)
