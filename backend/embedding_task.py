@@ -1,3 +1,4 @@
+# embed_task.py
 # Fungsi background task untuk proses embedding ulang semua PDF
 
 def embed_task(embedding_progress):

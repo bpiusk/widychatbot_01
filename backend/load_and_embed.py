@@ -1,3 +1,4 @@
+# load_and_embed.py
 # Script untuk memuat semua PDF, memecah menjadi chunk, dan membuat vectorstore embedding
 import os
 import re

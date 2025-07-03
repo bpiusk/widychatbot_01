@@ -1,3 +1,4 @@
+# auth.py
 # Modul autentikasi admin dan JWT untuk backend
 import os
 from datetime import datetime, timedelta
@@ -19,7 +20,7 @@ ADMIN_PASSWORD_HASH = os.getenv("ADMIN_PASSWORD_HASH")  # hash password admin
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/admin/login")
-
+    
 def verify_password(plain_password, hashed_password):
     """Verifikasi password plain dengan hash."""
     return pwd_context.verify(plain_password, hashed_password)
