@@ -1,3 +1,6 @@
+#pdf_reader.py
+# Utility functions to read and extract text from PDF files.
+# Menggunakan PyPDF2 untuk ekstraksi teks dari PDF
 from PyPDF2 import PdfReader
 import os
 

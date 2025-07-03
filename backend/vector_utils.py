@@ -1,3 +1,4 @@
+#vector_utils.py
 # Fungsi utilitas untuk menghapus vektor embedding berdasarkan nama file PDF
 def delete_vector_by_filename(filename):
     from langchain.vectorstores import Chroma

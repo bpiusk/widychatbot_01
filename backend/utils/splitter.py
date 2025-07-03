@@ -1,3 +1,5 @@
+#splitter.py
+# Utility functions to split raw text into structured chunks.
 import re
 
 def split_text(raw_text):
