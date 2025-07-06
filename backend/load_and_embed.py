@@ -2,17 +2,29 @@
 # Script untuk memuat semua PDF, memecah menjadi chunk, dan membuat vectorstore embedding
 import os
 import re
-from dotenv import load_dotenv
-from langchain.embeddings import HuggingFaceEmbeddings
-from langchain.vectorstores import Chroma
+from langchain_community.embeddings import HuggingFaceEmbeddings
+from langchain_community.vectorstores import Chroma
 from utils.pdf_reader import load_all_pdfs
 from utils.splitter import split_text
+from chromadb import CloudClient
+from dotenv import load_dotenv
 
+# Muat variabel lingkungan dari .env
 load_dotenv()
+CHROMA_API_KEY = os.getenv("CHROMA_API_KEY")
+CHROMA_TENANT = os.getenv("CHROMA_TENANT")
+CHROMA_COLLECTION_NAME = os.getenv("CHROMA_COLLECTION_NAME")
 
 if __name__ == "__main__":
+    # Inisialisasi Chroma CloudClient dari environment variable
+    client = CloudClient(
+        api_key=CHROMA_API_KEY,
+        tenant=CHROMA_TENANT,
+        database=CHROMA_COLLECTION_NAME
+    )
+
     # Folder PDF sumber
-    pdf_folder = "pdfs" 
+    pdf_folder = "pdfs"
     # Memuat semua file PDF dan mengembalikan dict {filename: text}
     pdf_texts = load_all_pdfs(pdf_folder)
 
@@ -27,13 +39,11 @@ if __name__ == "__main__":
         print(f"Jumlah chunk dari {filename}: {len(chunks)}")
         all_chunks.extend(chunks)
         for idx, chunk in enumerate(chunks):
-            # Ekstrak tag jika ada
             tag_match = re.search(r'Tag:\s*(.*)', chunk)
             tags = [t.strip() for t in tag_match.group(1).split(',')] if tag_match else []
             # Metadata untuk setiap chunk
             metadata = {
                 "source": filename,
-                "text": chunk,
                 "chunk_index": idx,
                 "tags": ", ".join(tags) if tags else ""
             }
@@ -44,18 +54,18 @@ if __name__ == "__main__":
     else:
         print("Tidak ada metadata yang dihasilkan.")
 
-    print("Contoh chunk:", chunks[0] if chunks else "TIDAK ADA CHUNK")
+    print("Contoh chunk:", all_chunks[0] if all_chunks else "TIDAK ADA CHUNK")
 
     # Inisialisasi model embedding
     embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-mpnet-base-v2")
 
-    # Membuat dan menyimpan vectorstore dari semua chunk
+    # Gunakan client hasil inisialisasi di atas
     vectorstore = Chroma.from_texts(
         all_chunks,
         embedding=embeddings,
-        persist_directory="vectorstore",
+        client=client,
+        collection_name=CHROMA_COLLECTION_NAME,
         metadatas=all_metadatas
     )
-    vectorstore.persist()
 
-    print("Vectorstore berhasil dibuat dan disimpan ke folder 'vectorstore'.")
+    print("Vectorstore berhasil dibuat dan disimpan ke Chroma Cloud.")

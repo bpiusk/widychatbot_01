@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { uploadPdf, listPdfs, deletePdf, reEmbed, deleteFileAndVector, listEmbeddedPdfs, deleteEmbeddedPdf } from "../api";
 import { BASE_URL } from "../api";
+import { useNavigate } from "react-router-dom";
 
 // Komponen progress bar upload/embedding
 export function ProgressBar({ progress }) {
@@ -29,6 +30,7 @@ export default function AdminDashboard({ token, onLogout }) {
   const fileInputRef = useRef();
   const [deletingFile, setDeletingFile] = useState(null); // File yang sedang dihapus
   const [deletingEmbeddedFile, setDeletingEmbeddedFile] = useState(null); // Embedded file yang sedang dihapus
+  const navigate = useNavigate();
 
   // Cek token admin, redirect jika tidak ada
   useEffect(() => {
@@ -185,10 +187,18 @@ export default function AdminDashboard({ token, onLogout }) {
           <span className="text-purple-700 text-4xl md:text-5xl mb-1">★</span>
           <span className="text-3xl md:text-4xl font-extrabold text-purple-800 text-center drop-shadow">Dashboard Admin</span>
         </div>
-        {/* Logout Button (always visible, right top) */}
+        {/* Tombol ke halaman laporan feedback */}
         <div className="flex justify-end mb-2">
           <button
-            onClick={() => { // <--- Tambahkan fungsi anonim di sini
+            onClick={() => {
+              navigate("/admin/reports");
+            }}
+            className="bg-yellow-500 hover:bg-yellow-600 text-white font-semibold py-2 px-6 rounded-xl shadow transition text-base mr-2"
+          >
+            Lihat Laporan Feedback
+          </button>
+          <button
+            onClick={() => {
               if (window.confirm("Apakah Anda yakin ingin logout?")) {
                 if (onLogout) {
                   onLogout();

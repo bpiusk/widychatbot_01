@@ -1,4 +1,4 @@
-#  # app.py
+# app.py
 # FastAPI backend utama untuk chatbot dan admin
 from fastapi import FastAPI, UploadFile, File, Form, Depends, HTTPException, BackgroundTasks, Path, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -9,9 +9,9 @@ from chat_engine import get_conversation_chain_with_hybrid_multiquery_llm
 from pdf_manager import save_pdf, delete_pdf, list_pdfs, list_embedded_pdfs
 from auth import authenticate_admin, create_access_token, get_current_admin
 import logging
-from dotenv import load_dotenv
 from fastapi.responses import JSONResponse
 import hashlib
+from feedback_manager import insert_feedback, list_feedback
 
 # Variabel global untuk progress embedding
 embedding_progress = {"progress": 0, "status": "idle"}
@@ -21,10 +21,9 @@ openai_api_key = os.getenv("OPENAI_API_KEY")
 
 app = FastAPI()
 
-# Konfigurasi CORS agar frontend bisa akses API
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -33,8 +32,14 @@ app.add_middleware(
 # Model request/response untuk endpoint chat
 class ChatRequest(BaseModel):
     question: str
+
 class ChatResponse(BaseModel):
     answer: str
+
+class FeedbackRequest(BaseModel):
+    question: str
+    answer: str
+    feedback_type: str  # "like" atau "dislike"
 
 # Simpan conversation chain per session_id
 conversation_sessions = {}
@@ -109,7 +114,13 @@ async def embed_all_pdfs(background_tasks: BackgroundTasks, current_admin: str =
     from embedding_task import embed_task
     embedding_progress["progress"] = 0
     embedding_progress["status"] = "running"
-    background_tasks.add_task(embed_task, embedding_progress)
+    from dotenv import load_dotenv
+    import os
+    load_dotenv()
+    chroma_api_key = os.getenv("CHROMA_API_KEY")
+    chroma_tenant = os.getenv("CHROMA_TENANT")
+    chroma_collection_name = os.getenv("CHROMA_COLLECTION_NAME")
+    background_tasks.add_task(embed_task, embedding_progress, chroma_api_key, chroma_tenant, chroma_collection_name)
     return {"detail": "Embedding ulang sedang diproses."}
 
 # Endpoint hapus PDF & vektor
@@ -120,10 +131,25 @@ async def remove_pdf_and_vector(
 ):
     try:
         logging.info(f"Request to delete PDF & vector: {filename}")
-        delete_pdf(filename)
+        from pdf_manager import delete_pdf
         from vector_utils import delete_vector_by_filename
-        delete_vector_by_filename(filename)
-        return {"detail": "PDF dan vektor berhasil dihapus"}
+        from supabase import create_client
+        import os
+        from dotenv import load_dotenv
+        load_dotenv()
+        SUPABASE_URL = os.getenv("SUPABASE_URL")
+        SUPABASE_SERVICE_KEY = os.getenv("SUPABASE_SERVICE_KEY")
+        supabase = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
+        res = supabase.table("pdfs").select("is_embedded").eq("file_name", filename).execute()
+        is_embedded = False
+        if res.data and len(res.data) > 0:
+            is_embedded = res.data[0].get("is_embedded", "false") == "true"
+        delete_pdf(filename)
+        if is_embedded:
+            delete_vector_by_filename(filename)
+            return {"detail": "PDF dan vektor berhasil dihapus"}
+        else:
+            return {"detail": "PDF berhasil dihapus"}
     except Exception as e:
         logging.exception(f"Error deleting PDF & vector {filename}: {e}")
         raise HTTPException(status_code=500, detail=f"Internal Server Error: {e}")
@@ -134,20 +160,38 @@ async def remove_embedded_pdf(
     filename: str = Path(..., description="Nama file PDF, termasuk ekstensi"),
     current_admin: str = Depends(get_current_admin)
 ):
-    import os
     import logging
+    from pdf_manager import delete_pdf
     from vector_utils import delete_vector_by_filename
-    embedded_dir = os.path.join(os.path.dirname(__file__), "embedded_pdfs")
-    file_path = os.path.join(embedded_dir, filename)
     try:
         logging.info(f"Request to delete embedded PDF & vector: {filename}")
-        if os.path.exists(file_path):
-            os.remove(file_path)
-            # Hapus juga vektor berdasarkan nama file
-            delete_vector_by_filename(filename)
-            return {"detail": "Embedded PDF dan vektor berhasil dihapus"}
-        else:
-            raise Exception("File not found")
+        delete_pdf(filename)
+        delete_vector_by_filename(filename)
+        return {"detail": "Embedded PDF dan vektor berhasil dihapus"}
     except Exception as e:
         logging.exception(f"Error deleting embedded PDF & vector {filename}: {e}")
         raise HTTPException(status_code=500, detail=f"Internal Server Error: {e}")
+
+# Endpoint feedback chatbot
+@app.post("/feedback")
+async def feedback_endpoint(req: FeedbackRequest):
+    insert_feedback(req.question, req.answer, req.feedback_type)
+    return {"detail": "Feedback diterima"}
+
+# Endpoint admin lihat laporan feedback
+@app.get("/admin/reports")
+async def admin_reports(current_admin: str = Depends(get_current_admin)):
+    return list_feedback()
+
+# Endpoint hapus laporan feedback
+@app.delete("/admin/reports/{report_id}")
+async def delete_feedback_report(report_id: str, current_admin: str = Depends(get_current_admin)):
+    from supabase import create_client
+    import os
+    from dotenv import load_dotenv
+    load_dotenv()
+    SUPABASE_URL = os.getenv("SUPABASE_URL")
+    SUPABASE_SERVICE_KEY = os.getenv("SUPABASE_SERVICE_KEY")
+    supabase = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
+    supabase.table("feedback_reports").delete().eq("id", report_id).execute()
+    return {"detail": "Laporan berhasil dihapus"}

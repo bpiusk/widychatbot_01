@@ -1,35 +1,45 @@
 #pdf_manager.py
 import os
-from typing import List, Dict
 from fastapi import UploadFile
-import shutil
 import logging
+from supabase import create_client, Client
+from dotenv import load_dotenv
+from datetime import datetime
 
-PDF_DIR = os.path.join(os.path.dirname(__file__), "pdfs")
-EMBEDDED_PDF_DIR = os.path.join(os.path.dirname(__file__), "embedded_pdfs")
+load_dotenv()
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_SERVICE_KEY = os.getenv("SUPABASE_SERVICE_KEY")
+SUPABASE_BUCKET = os.getenv("SUPABASE_BUCKET", "pdfs")
 
-os.makedirs(PDF_DIR, exist_ok=True)
-os.makedirs(EMBEDDED_PDF_DIR, exist_ok=True)
+supabase: Client = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
 
 def save_pdf(file: UploadFile):
-    file_path = os.path.join(PDF_DIR, file.filename)
-    with open(file_path, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
-    # File siap untuk di-embedding
+    # Upload file ke Supabase Storage
+    file_bytes = file.file.read()
+    storage_path = f"{file.filename}"
+    supabase.storage.from_(SUPABASE_BUCKET).upload(storage_path, file_bytes, {"content-type": "application/pdf"})
+    # Insert metadata ke tabel pdfs
+    now = datetime.utcnow().isoformat()
+    supabase.table("pdfs").insert({
+        "file_name": file.filename,
+        "storage_path": storage_path,
+        "uploud_at": now,
+        "is_embedded": "false"  # <-- string, bukan boolean
+    }).execute()
 
 def delete_pdf(filename: str):
-    file_path = os.path.join(PDF_DIR, filename)
-    if os.path.exists(file_path):
-        try:
-            os.remove(file_path)
-        except Exception as e:
-            raise Exception(f"Gagal hapus {file_path}: {e}")
-    else:
-        logging.warning(f"File PDF tidak ditemukan: {file_path}")
-    # Tidak perlu hapus embedded/vektor di sini
+    # Hapus file dari Supabase Storage
+    storage_path = filename
+    supabase.storage.from_(SUPABASE_BUCKET).remove([storage_path])
+    # Hapus metadata dari tabel pdfs
+    supabase.table("pdfs").delete().eq("file_name", filename).execute()
 
 def list_pdfs() -> list:
-    return [f for f in os.listdir(PDF_DIR) if f.lower().endswith(".pdf")]
+    # Ambil daftar PDF dari tabel pdfs yang belum di-embedding
+    res = supabase.table("pdfs").select("file_name").eq("is_embedded", "false").execute()  # <-- string
+    return [row["file_name"] for row in res.data] if res.data else []
 
 def list_embedded_pdfs() -> list:
-    return [f for f in os.listdir(EMBEDDED_PDF_DIR) if f.lower().endswith(".pdf")]
+    # Ambil daftar PDF dari tabel pdfs yang sudah di-embedding
+    res = supabase.table("pdfs").select("file_name").eq("is_embedded", "true").execute()  # <-- string
+    return [row["file_name"] for row in res.data] if res.data else []

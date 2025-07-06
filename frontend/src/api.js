@@ -1,6 +1,5 @@
 // API utilitas untuk komunikasi frontend dengan backend
-export const BASE_URL = "http://localhost:8000";
-//const BASE_URL = process.env.REACT_APP_BASE_URL;
+export const BASE_URL = process.env.REACT_APP_API_URL;
 
 // Chatbot user: Kirim pertanyaan ke endpoint /chat
 export async function chat(question) {
@@ -134,5 +133,24 @@ export async function deleteEmbeddedPdf(filename, token) {
     const err = await res.json().catch(() => ({}));
     throw new Error(err.detail || "Gagal menghapus embedded PDF (server error)");
   }
+  return res.json();
+}
+
+// Kirim feedback (like/dislike/report)
+export async function sendFeedback(question, answer, feedback_type) {
+  const res = await fetch(`${BASE_URL}/feedback`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ question, answer, feedback_type }),
+  });
+  return res.json();
+}
+
+// Ambil daftar laporan feedback (admin)
+export async function getFeedbackReports(token) {
+  const res = await fetch(`${BASE_URL}/admin/reports`, {
+    method: "GET",
+    headers: { Authorization: `Bearer ${token}` },
+  });
   return res.json();
 }

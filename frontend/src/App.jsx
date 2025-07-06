@@ -4,6 +4,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-d
 import Chatbot from "./components/Chatbot";
 import AdminLogin from "./components/AdminLogin";
 import AdminDashboard from "./components/AdminDashboard";
+import AdminReport from "./components/AdminReport";
 
 export default function App() {
   // State token admin
@@ -41,6 +42,16 @@ export default function App() {
           element={
             adminToken ? (
               <AdminDashboard token={adminToken} onLogout={handleLogout} />
+            ) : (
+              <Navigate to="/admin" replace />
+            )
+          }
+        />
+        <Route
+          path="/admin/reports"
+          element={
+            adminToken ? (
+              <AdminReport token={adminToken} />
             ) : (
               <Navigate to="/admin" replace />
             )

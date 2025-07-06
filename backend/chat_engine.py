@@ -1,19 +1,41 @@
 # Modul utama untuk logika retrieval dan chat engine chatbot
-from langchain.chat_models import ChatOpenAI
-from langchain.vectorstores import Chroma
-from langchain.embeddings import HuggingFaceEmbeddings
+from langchain_community.chat_models import ChatOpenAI
+from langchain_community.vectorstores import Chroma
+from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain.memory import ConversationBufferMemory
 from langchain.prompts import PromptTemplate
 from sklearn.feature_extraction.text import TfidfVectorizer
 import numpy as np
 from utils.postprocess import postprocess_context, postprocess_answer
-import time
+import os
+from dotenv import load_dotenv
+from chromadb import CloudClient # Tambahkan import CloudClient
+
+# Muat variabel lingkungan di awal file untuk akses global
+load_dotenv()
+CHROMA_API_KEY = os.getenv("CHROMA_API_KEY")
+CHROMA_TENANT = os.getenv("CHROMA_TENANT")
+CHROMA_COLLECTION_NAME = os.getenv("CHROMA_COLLECTION_NAME")
 
 # --- INISIALISASI SEKALI DI AWAL ---
-# Inisialisasi model embedding dan vectorstore
+# Inisialisasi model embedding
 embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-mpnet-base-v2")
-vectorstore = Chroma(persist_directory="vectorstore", embedding_function=embeddings)
-llm = None  # Akan diinisialisasi saat ada API key
+
+# Inisialisasi Chroma Client untuk koneksi ke Chroma Cloud
+chroma_client = CloudClient(
+    api_key=CHROMA_API_KEY,
+    tenant=CHROMA_TENANT,
+    database=CHROMA_COLLECTION_NAME # BARIS PENTING YANG DITAMBAHKAN
+)
+
+# Dapatkan koleksi yang sudah ada dari Chroma Cloud
+vectorstore = Chroma(
+    client=chroma_client,
+    collection_name=CHROMA_COLLECTION_NAME, # collection_name juga tetap di sini
+    embedding_function=embeddings
+)
+
+llm = None
 with open("prompts/rag_prompt.txt", "r", encoding="utf-8") as f:
     rag_template = f.read()
 QA_PROMPT = PromptTemplate(
@@ -31,8 +53,9 @@ def get_conversation_chain_with_hybrid_multiquery_llm(openai_api_key, n_paraphra
     memory = ConversationBufferMemory(memory_key="chat_history", return_messages=True)
 
     # Ambil semua chunk text dan simpan vectorizer global (cache di memory, update jika vectorstore berubah)
-    all_metadatas = vectorstore._collection.get(include=["metadatas"])
-    chunk_texts = [meta['text'] for meta in all_metadatas['metadatas'] if 'text' in meta]
+    all_docs = vectorstore._collection.get(include=["documents", "metadatas"])
+    chunk_texts = all_docs['documents']
+    all_metadatas = all_docs['metadatas']
     if not chunk_texts:
         raise ValueError("Tidak ada chunk text di vectorstore!")
     vectorizer = TfidfVectorizer()
@@ -92,7 +115,7 @@ def get_conversation_chain_with_hybrid_multiquery_llm(openai_api_key, n_paraphra
         all_scores = np.array(all_scores)
         final_scores = np.max(all_scores, axis=0)
         top_idx = np.argsort(final_scores)[::-1][:top_k]
-        all_metas = all_metadatas['metadatas']
+        all_metas = all_metadatas
         docs = []
         for idx in top_idx:
             print(f"Hybrid score: {final_scores[idx]:.4f}")
@@ -103,12 +126,12 @@ def get_conversation_chain_with_hybrid_multiquery_llm(openai_api_key, n_paraphra
             print("Vektor embedding pertanyaan (10 angka pertama):", np.array(question_embeddings[0])[:10])
             print("Vektor embedding dokumen terpilih (10 angka pertama):", np.array(all_embeddings[idx])[:10])
             class Doc:
-                def __init__(self, meta):
-                    self.page_content = meta.get('text', '')
+                def __init__(self, meta, text):
+                    self.page_content = text
                     self.source = meta.get('source', '')
                     self.hybrid_score = final_scores[idx]
                     self.cosine_similarity = vector_scores[idx]
-            docs.append(Doc(all_metas[idx]))
+            docs.append(Doc(all_metas[idx], chunk_texts[idx]))
         return docs
 
     # Kelas chain retrieval + LLM

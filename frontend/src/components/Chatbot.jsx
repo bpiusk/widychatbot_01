@@ -1,6 +1,6 @@
 // Komponen utama Chatbot untuk UI dan logika chatbot kampus
 import React, { useState, useRef, useEffect } from "react";
-import { chat } from "../api";
+import { chat, sendFeedback } from "../api";
 
 export default function Chatbot() {
   // State untuk menyimpan pesan chat
@@ -9,6 +9,9 @@ export default function Chatbot() {
   const [input, setInput] = useState("");
   // State untuk loading saat menunggu respon bot
   const [loading, setLoading] = useState(false);
+  // State untuk menyimpan feedback like/dislike dan laporan
+  const [feedback, setFeedback] = useState({}); // {idx: {type: "like"/"dislike", reported: bool}}
+  const [showReport, setShowReport] = useState({}); // {idx: true/false}
   // Ref untuk scroll otomatis ke bawah
   const messagesEndRef = useRef(null);
 
@@ -86,6 +89,25 @@ export default function Chatbot() {
     ));
   }
 
+  // Fungsi kirim feedback
+  const handleFeedback = (idx, type) => {
+    setFeedback((prev) => ({ ...prev, [idx]: { type, reported: false } }));
+    setShowReport((prev) => ({ ...prev, [idx]: true }));
+  };
+
+  // Fungsi kirim laporan
+  const handleReport = async (idx) => {
+    const userMsgIdx = idx - 1;
+    if (userMsgIdx < 0 || messages[userMsgIdx]?.from !== "user") return;
+    const question = messages[userMsgIdx].text;
+    const answer = messages[idx].text;
+    const type = feedback[idx]?.type || "dislike";
+    await sendFeedback(question, answer, type);
+    setFeedback((prev) => ({ ...prev, [idx]: { ...prev[idx], reported: true } }));
+    setShowReport((prev) => ({ ...prev, [idx]: false }));
+    alert("Laporan telah dikirim ke admin.");
+  };
+
   return (
     // Container utama chatbot
     <div className="flex flex-col min-h-screen bg-gradient-to-b from-white via-pink-100 to-purple-100 text-[clamp(1.1rem,3vw,1.15rem)] px-0 sm:px-4 md:px-6">
@@ -121,25 +143,58 @@ export default function Chatbot() {
           <div className="flex flex-col gap-3 sm:gap-4">
             {/* Mapping pesan user dan bot */}
             {messages.map((msg, idx) => (
-              <div
-                key={idx}
-                className={`flex ${
-                  msg.from === "user" ? "justify-end" : "justify-start"
-                }`}
-              >
+              <div key={idx}>
                 <div
-                  className={`w-full sm:w-auto px-4 py-2 sm:px-5 sm:py-3 max-w-full sm:max-w-[85%] rounded-2xl text-[clamp(1.1rem,3vw,1.15rem)] shadow-md break-words leading-relaxed backdrop-blur-md backdrop-saturate-150 ${
-                    msg.from === "user"
-                      ? "bg-white-200/30 text-gray-900 border border-white-300/20"
-                      : "bg-purple-200/20 text-gray-900 border border-purple-300/20"
+                  className={`flex ${
+                    msg.from === "user" ? "justify-end" : "justify-start"
                   }`}
-                  style={{
-                    wordBreak: "break-word",
-                    fontSize: "clamp(1.1rem, 3vw, 1.15rem)",
-                  }}
                 >
-                  {renderBotMessage(msg.text)}
+                  <div
+                    className={`w-full sm:w-auto px-4 py-2 sm:px-5 sm:py-3 max-w-full sm:max-w-[85%] rounded-2xl text-[clamp(1.1rem,3vw,1.15rem)] shadow-md break-words leading-relaxed backdrop-blur-md backdrop-saturate-150 ${
+                      msg.from === "user"
+                        ? "bg-white-200/30 text-gray-900 border border-white-300/20"
+                        : "bg-purple-200/20 text-gray-900 border border-purple-300/20"
+                    }`}
+                    style={{
+                      wordBreak: "break-word",
+                      fontSize: "clamp(1.1rem, 3vw, 1.15rem)",
+                    }}
+                  >
+                    {renderBotMessage(msg.text)}
+                  </div>
                 </div>
+                {/* Tombol feedback hanya untuk pesan bot */}
+                {msg.from === "bot" && (
+                  <div className="flex gap-2 mt-1 ml-2">
+                    {!feedback[idx]?.type && (
+                      <>
+                        <button
+                          className="px-3 py-1 rounded-full bg-green-100 text-green-700 border border-green-300 hover:bg-green-200 text-xs"
+                          onClick={() => handleFeedback(idx, "like")}
+                        >
+                          👍 Like
+                        </button>
+                        <button
+                          className="px-3 py-1 rounded-full bg-red-100 text-red-700 border border-red-300 hover:bg-red-200 text-xs"
+                          onClick={() => handleFeedback(idx, "dislike")}
+                        >
+                          👎 Dislike
+                        </button>
+                      </>
+                    )}
+                    {feedback[idx]?.type && !feedback[idx]?.reported && showReport[idx] && (
+                      <button
+                        className="px-3 py-1 rounded-full bg-yellow-100 text-yellow-700 border border-yellow-300 hover:bg-yellow-200 text-xs"
+                        onClick={() => handleReport(idx)}
+                      >
+                        Laporkan ke Admin
+                      </button>
+                    )}
+                    {feedback[idx]?.reported && (
+                      <span className="text-xs text-gray-500 ml-2">Laporan dikirim</span>
+                    )}
+                  </div>
+                )}
               </div>
             ))}
 
