@@ -23,7 +23,11 @@ app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+        "https://widychatbot-01.vercel.app",
+        "https://widychatbot-01-cuej7487w-bene30s-projects.vercel.app",
+        "http://localhost:3000"  # opsional, untuk development lokal
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
