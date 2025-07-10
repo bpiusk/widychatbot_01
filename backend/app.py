@@ -21,11 +21,22 @@ openai_api_key = os.getenv("OPENAI_API_KEY")
 
 app = FastAPI()
 
+# Health check endpoint (opsional, tapi baik untuk RunPod)
+@app.get("/")
+async def root():
+    return {"status": "ok"}
+
+# Endpoint OPTIONS untuk /chat agar preflight CORS tidak error
+@app.options("/chat")
+async def options_chat():
+    return {}
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "https://widychatbot-01.vercel.app",
-        "http://localhost:3000" 
+        "https://widychatbot-01-3p2tf6vvr-bene30s-projects.vercel.app",
+        "http://localhost:3000"
     ],
     allow_credentials=True,
     allow_methods=["*"],
