@@ -10,6 +10,7 @@
   "author": "",
   "license": "ISC",
   "description": "",
+  "proxy": "https://s2e81t8j1na7st-8000.proxy.runpod.net",
   "devDependencies": {
     "autoprefixer": "^10.4.21",
     "postcss": "^8.5.4",
