@@ -25,7 +25,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "https://widychatbot-01.vercel.app",
-        "https://widychatbot-01-cg2sxck89-bene30s-projects.vercel.app",
+        "https://widychatbot-01-ou91waxrl-bene30s-projects.vercel.app",
         "http://localhost:3000" 
     ],
     allow_credentials=True,
