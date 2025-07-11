@@ -189,14 +189,14 @@ export default function AdminDashboard({ token, onLogout }) {
         </div>
         {/* Tombol ke halaman laporan feedback */}
         <div className="flex justify-end mb-2">
-          <button
+          {/* <button
             onClick={() => {
               navigate("/admin/reports");
             }}
             className="bg-yellow-500 hover:bg-yellow-600 text-white font-semibold py-2 px-6 rounded-xl shadow transition text-base mr-2"
           >
             Lihat Laporan Feedback
-          </button>
+          </button> */}
           <button
             onClick={() => {
               if (window.confirm("Apakah Anda yakin ingin logout?")) {
