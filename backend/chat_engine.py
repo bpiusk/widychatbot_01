@@ -9,7 +9,7 @@ import numpy as np
 from utils.postprocess import postprocess_context, postprocess_answer
 import os
 from dotenv import load_dotenv
-from chromadb import CloudClient # Tambahkan import CloudClient
+from chromadb import CloudClient
 
 # Muat variabel lingkungan di awal file untuk akses global
 load_dotenv()
@@ -17,23 +17,31 @@ CHROMA_API_KEY = os.getenv("CHROMA_API_KEY")
 CHROMA_TENANT = os.getenv("CHROMA_TENANT")
 CHROMA_COLLECTION_NAME = os.getenv("CHROMA_COLLECTION_NAME")
 
+if not CHROMA_API_KEY or not CHROMA_TENANT or not CHROMA_COLLECTION_NAME:
+    raise RuntimeError(
+        "CHROMA_API_KEY, CHROMA_TENANT, dan CHROMA_COLLECTION_NAME harus di-set di environment (.env)"
+    )
+
 # --- INISIALISASI SEKALI DI AWAL ---
 # Inisialisasi model embedding
 embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-mpnet-base-v2")
 
-# Inisialisasi Chroma Client untuk koneksi ke Chroma Cloud
-chroma_client = CloudClient(
-    api_key=CHROMA_API_KEY,
-    tenant=CHROMA_TENANT,
-    database=CHROMA_COLLECTION_NAME # BARIS PENTING YANG DITAMBAHKAN
-)
+try:
+    # Inisialisasi Chroma Client untuk koneksi ke Chroma Cloud
+    chroma_client = CloudClient(
+        api_key=CHROMA_API_KEY,
+        tenant=CHROMA_TENANT,
+        database=CHROMA_COLLECTION_NAME # BARIS PENTING YANG DITAMBAHKAN
+    )
 
-# Dapatkan koleksi yang sudah ada dari Chroma Cloud
-vectorstore = Chroma(
-    client=chroma_client,
-    collection_name=CHROMA_COLLECTION_NAME, # collection_name juga tetap di sini
-    embedding_function=embeddings
-)
+    # Dapatkan koleksi yang sudah ada dari Chroma Cloud
+    vectorstore = Chroma(
+        client=chroma_client,
+        collection_name=CHROMA_COLLECTION_NAME, # collection_name juga tetap di sini
+        embedding_function=embeddings
+    )
+except Exception as e:
+    raise RuntimeError(f"Gagal inisialisasi Chroma CloudClient/vectorstore: {e}")
 
 llm = None
 with open("prompts/rag_prompt.txt", "r", encoding="utf-8") as f:
