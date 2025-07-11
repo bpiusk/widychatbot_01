@@ -54,7 +54,7 @@ QA_PROMPT = PromptTemplate(
 # Fungsi utama untuk membuat conversation chain dengan hybrid multiquery LLM
 # n_paraphrase: jumlah parafrase, alpha: bobot hybrid, top_k: jumlah chunk diambil
 
-def get_conversation_chain_with_hybrid_multiquery_llm(openai_api_key, n_paraphrase=8, alpha=0.6, top_k=15):
+def get_conversation_chain_with_hybrid_multiquery_llm(openai_api_key, n_paraphrase=8, alpha=0.6, top_k=8):  # kurangi top_k
     global llm
     if llm is None or getattr(llm, "openai_api_key", None) != openai_api_key:
         llm = ChatOpenAI(openai_api_key=openai_api_key, model_name="gpt-3.5-turbo", temperature=0.5)
@@ -80,9 +80,10 @@ def get_conversation_chain_with_hybrid_multiquery_llm(openai_api_key, n_paraphra
         return [question] + [p.strip() for p in result.split('\n') if p.strip()]
 
     # Format riwayat chat menjadi string
-    def format_history(chat_history, last_question=None):
+    def format_history(chat_history, last_question=None, max_history=8):
+        # Ambil hanya max_history pesan terakhir
         history_lines = []
-        for msg in chat_history:
+        for msg in chat_history[-max_history:]:
             if hasattr(msg, "type"):
                 if msg.type == "human":
                     history_lines.append(f"User: {msg.content}")
@@ -183,11 +184,12 @@ def get_conversation_chain_with_hybrid_multiquery_llm(openai_api_key, n_paraphra
 
             # Gunakan seluruh riwayat untuk retrieval
             docs = hybrid_multiquery_retrieve(question, chat_history=chat_history, top_k=top_k, alpha=alpha)
-            context = "\n".join([d.page_content for d in docs])
+            # Batasi panjang context (misal, max 4000 karakter)
+            context = "\n".join([d.page_content[:1000] for d in docs])  # potong tiap chunk max 1000 char
             context = postprocess_context(context)
 
-            # Gabungkan seluruh riwayat ke prompt LLM
-            full_history = format_history(chat_history, last_question=question)
+            # Gabungkan riwayat chat (hanya max_history terakhir)
+            full_history = format_history(chat_history, last_question=question, max_history=8)
             prompt_str = self.prompt.format(context=context, question=full_history)
             answer = self.llm.predict(prompt_str)
             answer = postprocess_answer(answer)
