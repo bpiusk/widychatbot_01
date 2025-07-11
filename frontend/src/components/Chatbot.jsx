@@ -163,7 +163,7 @@ export default function Chatbot() {
                     {renderBotMessage(msg.text)}
                   </div>
                 </div>
-                {/* Tombol feedback hanya untuk pesan bot */}
+                {/* Tombol feedback hanya untuk pesan bot
                 {msg.from === "bot" && (
                   <div className="flex gap-2 mt-1 ml-2">
                     {!feedback[idx]?.type && (
@@ -194,7 +194,7 @@ export default function Chatbot() {
                       <span className="text-xs text-gray-500 ml-2">Laporan dikirim</span>
                     )}
                   </div>
-                )}
+                )} */}
               </div>
             ))}
 
