@@ -23,10 +23,8 @@ if __name__ == "__main__":
         database=CHROMA_COLLECTION_NAME
     )
 
-    # Folder PDF sumber
-    pdf_folder = "pdfs"
-    # Memuat semua file PDF dan mengembalikan dict {filename: text}
-    pdf_texts = load_all_pdfs(pdf_folder)
+    # Ambil semua file PDF dari Supabase Storage, bukan dari folder lokal
+    pdf_texts = load_all_pdfs()  # <-- Hapus argumen pdf_folder
 
     all_chunks = []
     all_metadatas = []
@@ -34,9 +32,8 @@ if __name__ == "__main__":
     # Proses setiap file PDF
     for filename, raw_text in pdf_texts.items():
         print(f"Memproses {filename}, panjang teks: {len(raw_text)} karakter")
-        # Memecah teks PDF menjadi chunk kecil
         chunks = split_text(raw_text)
-        print(f"Jumlah chunk dari {filename}: {len(chunks)}")
+        print(f"Jumlah chunk dari {filename}: {len(chunks)}")  # Log jumlah chunk
         all_chunks.extend(chunks)
         for idx, chunk in enumerate(chunks):
             tag_match = re.search(r'Tag:\s*(.*)', chunk)
