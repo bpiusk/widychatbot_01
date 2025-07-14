@@ -1,6 +1,7 @@
 // Komponen utama Chatbot untuk UI dan logika chatbot kampus
 import React, { useState, useRef, useEffect } from "react";
 import { chat, sendFeedback } from "../api";
+import theme from "../theme";
 
 export default function Chatbot() {
   // State untuk menyimpan pesan chat
@@ -110,17 +111,19 @@ export default function Chatbot() {
 
   return (
     // Container utama chatbot
-    <div className="flex flex-col min-h-screen bg-gradient-to-b from-white via-pink-100 to-purple-100 text-[clamp(1.1rem,3vw,1.15rem)] px-0 sm:px-4 md:px-6">
+    <div className={`flex flex-col min-h-screen ${theme.background} text-[clamp(1.1rem,3vw,1.15rem)] px-0 sm:px-4 md:px-6`}>
       {/* Header: Judul dan logo chatbot */}
       <header className="w-full flex flex-col items-center pt-6 pb-3 text-[clamp(1.15rem,4vw,1.5rem)] font-light text-gray-800 font-[Manrope] text-center leading-tight">
         {/* SVG Sparkle Logo */}
         <span className="flex justify-center items-center mb-2">
+          {/* Mengubah ukuran logo sparkle */}
           <svg
             xmlns="http://www.w3.org/2000/svg"
             viewBox="0 0 24 24"
             fill="currentColor"
-            className="size-6"
+            className="size-20 sm:size-16" 
           >
+            
             <path
               fillRule="evenodd"
               d="M9 4.5a.75.75 0 0 1 .721.544l.813 2.846a3.75 3.75 0 0 0 2.576 2.576l2.846.813a.75.75 0 0 1 0 1.442l-2.846.813a3.75 3.75 0 0 0-2.576 2.576l-.813 2.846a.75.75 0 0 1-1.442 0l-.813-2.846a3.75 3.75 0 0 0-2.576-2.576l-2.846-.813a.75.75 0 0 1 0-1.442l2.846-.813A3.75 3.75 0 0 0 7.466 7.89l.813-2.846A.75.75 0 0 1 9 4.5ZM18 1.5a.75.75 0 0 1 .728.568l.258 1.036c.236.94.97 1.674 1.91 1.91l1.036.258a.75.75 0 0 1 0 1.456l-1.036.258c-.94.236-1.674.97-1.91 1.91l-.258 1.036a.75.75 0 0 1-1.456 0l-.258-1.036a2.625 2.625 0 0 0-1.91-1.91l-1.036-.258a.75.75 0 0 1 0-1.456l1.036-.258a2.625 2.625 0 0 0 1.91-1.91l.258-1.036A.75.75 0 0 1 18 1.5ZM16.5 15a.75.75 0 0 1 .712.513l.394 1.183c.15.447.5.799.948.948l1.183.395a.75.75 0 0 1 0 1.422l-1.183.395c-.447.15-.799.5-.948.948l-.395 1.183a.75.75 0 0 1-1.422 0l-.395-1.183a1.5 1.5 0 0 0-.948-.948l-1.183-.395a.75.75 0 0 1 0-1.422l1.183-.395c.447-.15.799-.5.948-.948l.395-1.183A.75.75 0 0 1 16.5 15Z"
@@ -150,11 +153,13 @@ export default function Chatbot() {
                   }`}
                 >
                   <div
-                    className={`w-full sm:w-auto px-4 py-2 sm:px-5 sm:py-3 max-w-full sm:max-w-[85%] rounded-2xl text-[clamp(1.1rem,3vw,1.15rem)] shadow-md break-words leading-relaxed backdrop-blur-md backdrop-saturate-150 ${
-                      msg.from === "user"
-                        ? "bg-white-200/30 text-gray-900 border border-white-300/20"
-                        : "bg-purple-200/20 text-gray-900 border border-purple-300/20"
-                    }`}
+                    className={`
+                      ${msg.from === "user" ? theme.bubbleUser + " rounded-2xl" : theme.bubbleBot + " rounded-2xl"}
+                      px-4 py-2 sm:px-5 sm:py-3
+                      max-w-full sm:max-w-[85%]
+                      shadow-md break-words leading-relaxed backdrop-blur-md backdrop-saturate-150
+                      ${msg.from === "user" ? "ml-auto" : "mr-auto"}
+                    `}
                     style={{
                       wordBreak: "break-word",
                       fontSize: "clamp(1.1rem, 3vw, 1.15rem)",
@@ -169,13 +174,13 @@ export default function Chatbot() {
                     {!feedback[idx]?.type && (
                       <>
                         <button
-                          className="px-3 py-1 rounded-full bg-green-100 text-green-700 border border-green-300 hover:bg-green-200 text-xs"
+                          className={`px-3 py-1 rounded-full ${theme.feedbackLike} hover:bg-green-200 text-xs`}
                           onClick={() => handleFeedback(idx, "like")}
                         >
                           👍 Like
                         </button>
                         <button
-                          className="px-3 py-1 rounded-full bg-red-100 text-red-700 border border-red-300 hover:bg-red-200 text-xs"
+                          className={`px-3 py-1 rounded-full ${theme.feedbackDislike} hover:bg-red-200 text-xs`}
                           onClick={() => handleFeedback(idx, "dislike")}
                         >
                           👎 Dislike
@@ -184,7 +189,7 @@ export default function Chatbot() {
                     )}
                     {feedback[idx]?.type && !feedback[idx]?.reported && showReport[idx] && (
                       <button
-                        className="px-3 py-1 rounded-full bg-yellow-100 text-yellow-700 border border-yellow-300 hover:bg-yellow-200 text-xs"
+                        className={`px-3 py-1 rounded-full ${theme.feedbackReport} hover:bg-yellow-200 text-xs`}
                         onClick={() => handleReport(idx)}
                       >
                         Laporkan ke Admin
@@ -212,13 +217,14 @@ export default function Chatbot() {
         </div>
       </main>
 
-      {/* Input Form: Form untuk mengetik dan mengirim pesan */}
-      <form
-        onSubmit={handleSend}
-        className="w-full fixed bottom-3 left-0 flex justify-center px-0 sm:px-3 z-20"
-        autoComplete="off"
-      >
-        <div className="w-full max-w-full sm:max-w-3xl flex items-center bg-white border border-gray-200 rounded-full shadow-lg px-3 sm:px-4 py-2 gap-2">
+      {/* Footer: Peringatan akurasi dan Input Form */}
+      <div className="fixed bottom-0 left-0 w-full flex flex-col items-center pb-3 px-0 sm:px-3 z-20">
+        {/* Input Form: Form untuk mengetik dan mengirim pesan */}
+        <form
+          onSubmit={handleSend}
+          className="w-full max-w-full sm:max-w-3xl flex items-center bg-white border border-gray-200 rounded-full shadow-lg px-3 sm:px-4 py-2 gap-2"
+          autoComplete="off"
+        >
           <textarea
             value={input}
             onChange={(e) => {
@@ -256,13 +262,12 @@ export default function Chatbot() {
               />
             </svg>
           </button>
-        </div>
-      </form>
-
-      {/* Footer: Peringatan akurasi */}
-      <footer className="fixed bottom-0 w-full text-center text-[clamp(0.95rem,2vw,1rem)] text-gray-500 py-1 bg-transparent z-10 backdrop-blur-sm">
-        WidyChat tidak selalu akurat. Pastikan untuk memverifikasi informasi penting.
-      </footer>
+        </form>
+        {/* Peringatan akurasi */}
+        <footer className="w-full max-w-full sm:max-w-3xl text-center text-[clamp(0.95rem,2vw,1rem)] text-gray-500 py-1 bg-transparent backdrop-blur-sm">
+          WidyChat tidak selalu akurat. Pastikan untuk memverifikasi informasi penting.
+        </footer>
+      </div>
     </div>
   );
 }

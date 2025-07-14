@@ -3,6 +3,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { uploadPdf, listPdfs, deletePdf, reEmbed, deleteFileAndVector, listEmbeddedPdfs, deleteEmbeddedPdf } from "../api";
 import { BASE_URL } from "../api";
 import { useNavigate } from "react-router-dom";
+import theme from "../theme";
 
 // Komponen progress bar upload/embedding
 export function ProgressBar({ progress }) {
@@ -180,8 +181,8 @@ export default function AdminDashboard({ token, onLogout }) {
   }, [embedLoading]);
 
   return (
-    <div className="min-h-screen w-full flex flex-col items-center justify-start bg-gradient-to-b from-purple-100 via-pink-100 to-white py-8 px-2">
-      <div className="w-full max-w-3xl mx-auto bg-white/90 shadow-2xl rounded-3xl border border-purple-300 p-6 md:p-10 flex flex-col gap-6">
+    <div className={`min-h-screen w-full flex flex-col items-center justify-start ${theme.background} py-8 px-2`}>
+      <div className={`w-full max-w-3xl mx-auto ${theme.adminBackground} ${theme.cardShadow} rounded-3xl ${theme.cardBorder} p-6 md:p-10 flex flex-col gap-6`}>
         {/* Header */}
         <div className="flex flex-col items-center gap-2 mb-2">
           <span className="text-purple-700 text-4xl md:text-5xl mb-1">★</span>
@@ -193,7 +194,7 @@ export default function AdminDashboard({ token, onLogout }) {
             onClick={() => {
               navigate("/admin/reports");
             }}
-            className="bg-yellow-500 hover:bg-yellow-600 text-white font-semibold py-2 px-6 rounded-xl shadow transition text-base mr-2"
+            className={`${theme.buttonSecondary} font-semibold py-2 px-6 rounded-xl shadow transition text-base mr-2`
           >
             Lihat Laporan Feedback
           </button> */}
@@ -206,13 +207,13 @@ export default function AdminDashboard({ token, onLogout }) {
                 window.location.replace("/admin/login");
               }
             }}
-            className="bg-gradient-to-r from-purple-500 to-pink-500 text-white font-semibold py-2 px-6 rounded-xl shadow hover:from-purple-600 hover:to-pink-600 transition text-base focus:outline-none focus:ring-2 focus:ring-purple-300"
+            className={`${theme.buttonPrimary} font-semibold py-2 px-6 rounded-xl shadow transition text-base focus:outline-none focus:ring-2 focus:ring-purple-300`}
           >
             Logout
           </button>
         </div>
         {/* Info Section */}
-        <div className="flex items-start gap-3 bg-purple-50 border border-purple-200 rounded-xl p-4 shadow-sm">
+        <div className={`${theme.infoSection} rounded-xl p-4 shadow-sm flex items-start gap-3`}>
           <span className="text-3xl text-purple-600 select-none">ℹ️</span>
           <div className="text-base text-gray-900">
             <b>Aturan upload file PDF:</b>
@@ -237,7 +238,7 @@ export default function AdminDashboard({ token, onLogout }) {
           />
           <button
             type="button"
-            className="bg-yellow-400 hover:bg-yellow-500 text-white font-bold px-5 py-2 rounded-xl shadow transition disabled:opacity-60"
+            className={`${theme.buttonSecondary} font-bold px-5 py-2 rounded-xl shadow transition disabled:opacity-60`}
             onClick={() => fileInputRef.current.click()}
             disabled={uploading || embedLoading}
           >
@@ -248,7 +249,7 @@ export default function AdminDashboard({ token, onLogout }) {
           </span>
           <button
             type="submit"
-            className="bg-purple-600 hover:bg-purple-700 text-white font-bold px-5 py-2 rounded-xl shadow transition disabled:opacity-60"
+            className={`${theme.buttonPrimary} font-bold px-5 py-2 rounded-xl shadow transition disabled:opacity-60`}
             disabled={uploading || !file || embedLoading}
           >
             {uploading ? "Uploading..." : "Upload PDF"}
@@ -272,26 +273,26 @@ export default function AdminDashboard({ token, onLogout }) {
         {message && <div className="my-3 text-green-600 font-semibold text-center">{message}</div>}
         {/* Daftar PDF */}
         <div className="mt-2">
-          <span className="font-bold text-purple-700 mb-2 block text-lg">Daftar PDF</span>
+          <span className={`${theme.textPrimary} font-bold mb-2 block text-lg`}>Daftar PDF</span>
           <div className="flex flex-col gap-2">
             {(!Array.isArray(pdfs) || pdfs.length === 0) && (
-              <span className="text-gray-700">Tidak ada file PDF.</span>
+              <span className={theme.textSecondary}>Tidak ada file PDF.</span>
             )}
             {Array.isArray(pdfs) && pdfs.map((pdf) => (
               <div
                 key={pdf}
-                className="flex items-center justify-between bg-white rounded-lg px-4 py-2 border border-purple-200 shadow-sm hover:shadow-md transition"
+                className={`flex items-center justify-between bg-white rounded-lg px-4 py-2 ${theme.cardBorder} shadow-sm hover:shadow-md transition`}
               >
-                <span className="text-purple-700 font-medium truncate flex items-center gap-2">
+                <span className={`${theme.textPrimary} font-medium truncate flex items-center gap-2`}>
                   <svg className="w-5 h-5 text-purple-400" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>
                   {pdf}
                 </span>
-               <button
-                  className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded-lg shadow text-sm transition disabled:opacity-60 disabled:cursor-not-allowed" // Tambahkan disabled style
+                <button
+                  className={`${theme.buttonDanger} px-3 py-1 rounded-lg shadow text-sm transition disabled:opacity-60 disabled:cursor-not-allowed`}
                   onClick={() => handleDelete(pdf)}
-                  disabled={uploading || embedLoading || deletingFile === pdf} // Tambahkan kondisi disabled
+                  disabled={uploading || embedLoading || deletingFile === pdf}
                 >
-                  {deletingFile === pdf ? "Menghapus..." : "Hapus"} {/* Ubah teks */}
+                  {deletingFile === pdf ? "Menghapus..." : "Hapus"}
                 </button>
               </div>
             ))}
@@ -302,23 +303,23 @@ export default function AdminDashboard({ token, onLogout }) {
           <span className="font-bold text-green-600 mb-2 block text-lg">Daftar PDF yang sudah di-embedding</span>
           <div className="flex flex-col gap-2">
             {(!Array.isArray(embeddedPdfs) || embeddedPdfs.length === 0) && (
-              <span className="text-gray-700">Tidak ada file embedded.</span>
+              <span className={theme.textSecondary}>Tidak ada file embedded.</span>
             )}
             {Array.isArray(embeddedPdfs) && embeddedPdfs.map((pdf) => (
               <div
                 key={pdf}
-                className="flex items-center justify-between bg-green-50 rounded-lg px-4 py-2 border border-green-300 shadow-sm hover:shadow-md transition"
+                className={`${theme.embeddedBubble} flex items-center justify-between rounded-lg px-4 py-2 shadow-sm hover:shadow-md transition`}
               >
-                <span className="text-green-700 font-medium truncate flex items-center gap-2">
+                <span className="font-medium truncate flex items-center gap-2">
                   <svg className="w-5 h-5 text-green-400" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>
                   {pdf}
                 </span>
                 <button
-                  className="border border-red-500 text-red-500 px-3 py-1 rounded-lg hover:bg-red-100 text-sm shadow transition disabled:opacity-60 disabled:cursor-not-allowed" // Tambahkan disabled style
+                  className={`${theme.buttonOutlineDanger} px-3 py-1 rounded-lg text-sm shadow transition disabled:opacity-60 disabled:cursor-not-allowed`}
                   onClick={() => handleDeleteEmbedded(pdf)}
-                  disabled={uploading || embedLoading || deletingEmbeddedFile === pdf} // Tambahkan kondisi disabled
+                  disabled={uploading || embedLoading || deletingEmbeddedFile === pdf}
                 >
-                  {deletingEmbeddedFile === pdf ? "Menghapus..." : "Hapus"} {/* Ubah teks */}
+                  {deletingEmbeddedFile === pdf ? "Menghapus..." : "Hapus"}
                 </button>
               </div>
             ))}
