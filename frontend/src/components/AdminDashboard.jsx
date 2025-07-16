@@ -181,11 +181,18 @@ export default function AdminDashboard({ token, onLogout }) {
   }, [embedLoading]);
 
   return (
-    <div className={`min-h-screen w-full flex flex-col items-center justify-start ${theme.background} py-8 px-2`}>
+    <div className={`min-h-screen w-full flex flex-col items-center justify-start bg-gradient-to-b from-white via-pink-100 to-purple-200 py-8 px-2`}>
       <div className={`w-full max-w-3xl mx-auto ${theme.adminBackground} ${theme.cardShadow} rounded-3xl ${theme.cardBorder} p-6 md:p-10 flex flex-col gap-6`}>
         {/* Header */}
         <div className="flex flex-col items-center gap-2 mb-2">
-          <span className="text-purple-700 text-4xl md:text-5xl mb-1">★</span>
+          {/* Ganti SVG dengan gambar */}
+          <span className="mb-2 flex justify-center items-center">
+            <img
+              src="/sparkle.png" // atau "/logo/wd.jpg" atau "/stars.png"
+              alt="Logo"
+              className="w-12 h-12 sm:w-16 sm:h-16 md:w-20 md:h-20 object-contain"
+            />
+          </span>
           <span className="text-3xl md:text-4xl font-extrabold text-purple-800 text-center drop-shadow">Dashboard Admin</span>
         </div>
         {/* Tombol ke halaman laporan feedback */}

@@ -43,6 +43,13 @@ export default function AdminReport({ token }) {
   return (
     <div className={`min-h-screen flex flex-col items-center ${theme.background} py-8 px-2`}>
       <div className={`w-full max-w-3xl ${theme.adminBackground} ${theme.cardShadow} rounded-3xl ${theme.cardBorder} p-8 flex flex-col gap-6`}>
+        {/* Logo diambil dari theme.logoSvg */}
+        <div className="flex justify-center mb-2">
+          <span
+            dangerouslySetInnerHTML={{ __html: theme.logoSvg }}
+            aria-label="Logo"
+          />
+        </div>
         <div className="flex justify-end mb-2">
           <button
             onClick={() => navigate("/admin/dashboard")}

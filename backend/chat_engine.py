@@ -54,16 +54,25 @@ QA_PROMPT = PromptTemplate(
 # Fungsi utama untuk membuat conversation chain dengan hybrid multiquery LLM
 # n_paraphrase: jumlah parafrase, alpha: bobot hybrid, top_k: jumlah chunk diambil
 
-def get_conversation_chain_with_hybrid_multiquery_llm(openai_api_key, n_paraphrase=3, alpha=0.6, top_k=10):
+def get_conversation_chain_with_hybrid_multiquery_llm(openai_api_key, n_paraphrase=3, alpha=0.6, top_k=15):
     global llm
     if llm is None or getattr(llm, "openai_api_key", None) != openai_api_key:
         llm = ChatOpenAI(openai_api_key=openai_api_key, model_name="gpt-3.5-turbo", temperature=0.35)
     memory = ConversationBufferMemory(memory_key="chat_history", return_messages=True)
 
     # Ambil semua chunk text dan simpan vectorizer global (cache di memory, update jika vectorstore berubah)
-    all_docs = vectorstore._collection.get(include=["documents", "metadatas"])
+    # Pastikan mengambil semua chunk tanpa limit
+    all_docs = vectorstore._collection.get(include=["documents", "metadatas", "embeddings"], limit=None)
     chunk_texts = all_docs['documents']
     all_metadatas = all_docs['metadatas']
+    all_embeddings = all_docs['embeddings']
+
+    # Sinkronisasi jumlah chunk dan embedding
+    min_len = min(len(chunk_texts), len(all_embeddings))
+    chunk_texts = chunk_texts[:min_len]
+    all_metadatas = all_metadatas[:min_len]
+    all_embeddings = all_embeddings[:min_len]
+
     if not chunk_texts:
         raise ValueError("Tidak ada chunk text di vectorstore!")
     vectorizer = TfidfVectorizer()
@@ -115,6 +124,11 @@ def get_conversation_chain_with_hybrid_multiquery_llm(openai_api_key, n_paraphra
                 np.dot(q_emb, np.array(doc_emb)) / (np.linalg.norm(q_emb) * np.linalg.norm(doc_emb))
                 for doc_emb in all_embeddings
             ]
+            # Pastikan tfidf_scores dan vector_scores sama panjang
+            if len(tfidf_scores) != len(vector_scores):
+                min_len = min(len(tfidf_scores), len(vector_scores))
+                tfidf_scores = tfidf_scores[:min_len]
+                vector_scores = vector_scores[:min_len]
             hybrid_scores = alpha * tfidf_scores + (1 - alpha) * np.array(vector_scores)
             all_scores.append(hybrid_scores)
             print(f"\nQuery: {q}")

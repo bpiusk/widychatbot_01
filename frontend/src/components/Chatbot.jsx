@@ -111,25 +111,15 @@ export default function Chatbot() {
 
   return (
     // Container utama chatbot
-    <div className={`flex flex-col min-h-screen ${theme.background} text-[clamp(1.1rem,3vw,1.15rem)] px-0 sm:px-4 md:px-6`}>
+    <div className="flex flex-col min-h-screen bg-gradient-to-b from-white via-pink-100 to-purple-200 text-[clamp(1.1rem,3vw,1.15rem)] px-0 sm:px-4 md:px-6">
       {/* Header: Judul dan logo chatbot */}
-      <header className="w-full flex flex-col items-center pt-6 pb-3 text-[clamp(1.15rem,4vw,1.5rem)] font-light text-gray-800 font-[Manrope] text-center leading-tight">
-        {/* SVG Sparkle Logo */}
+      <header className="w-full flex flex-col items-center pt-6 pb-3 text-[clamp(1.15rem,4vw,1.5rem)] font-light text-black-800 font-[Manrope] text-center leading-tight">
         <span className="flex justify-center items-center mb-2">
-          {/* Mengubah ukuran logo sparkle */}
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            viewBox="0 0 24 24"
-            fill="currentColor"
-            className="size-20 sm:size-16" 
-          >
-            
-            <path
-              fillRule="evenodd"
-              d="M9 4.5a.75.75 0 0 1 .721.544l.813 2.846a3.75 3.75 0 0 0 2.576 2.576l2.846.813a.75.75 0 0 1 0 1.442l-2.846.813a3.75 3.75 0 0 0-2.576 2.576l-.813 2.846a.75.75 0 0 1-1.442 0l-.813-2.846a3.75 3.75 0 0 0-2.576-2.576l-2.846-.813a.75.75 0 0 1 0-1.442l2.846-.813A3.75 3.75 0 0 0 7.466 7.89l.813-2.846A.75.75 0 0 1 9 4.5ZM18 1.5a.75.75 0 0 1 .728.568l.258 1.036c.236.94.97 1.674 1.91 1.91l1.036.258a.75.75 0 0 1 0 1.456l-1.036.258c-.94.236-1.674.97-1.91 1.91l-.258 1.036a.75.75 0 0 1-1.456 0l-.258-1.036a2.625 2.625 0 0 0-1.91-1.91l-1.036-.258a.75.75 0 0 1 0-1.456l1.036-.258a2.625 2.625 0 0 0 1.91-1.91l.258-1.036A.75.75 0 0 1 18 1.5ZM16.5 15a.75.75 0 0 1 .712.513l.394 1.183c.15.447.5.799.948.948l1.183.395a.75.75 0 0 1 0 1.422l-1.183.395c-.447.15-.799.5-.948.948l-.395 1.183a.75.75 0 0 1-1.422 0l-.395-1.183a1.5 1.5 0 0 0-.948-.948l-1.183-.395a.75.75 0 0 1 0-1.422l1.183-.395c.447-.15.799-.5.948-.948l.395-1.183A.75.75 0 0 1 16.5 15Z"
-              clipRule="evenodd"
-            />
-          </svg>
+          <img
+            src="/sparkle.png"
+            alt="Logo"
+            className="w-10 h-10 sm:w-12 sm:h-12 md:w-14 md:h-14 object-contain"
+          />
         </span>
         Perlu info kampus? Tanya WidyChat saja!
       </header>
@@ -154,8 +144,10 @@ export default function Chatbot() {
                 >
                   <div
                     className={`
-                      ${msg.from === "user" ? theme.bubbleUser + " rounded-2xl" : theme.bubbleBot + " rounded-2xl"}
-                      px-4 py-2 sm:px-5 sm:py-3
+                      ${msg.from === "user"
+                        ? "bg-white/80 text-gray-900 border border-purple-100"
+                        : "bg-purple-200/60 text-black-900 border border-purple-200"}
+                      rounded-2xl px-4 py-2 sm:px-5 sm:py-3
                       max-w-full sm:max-w-[85%]
                       shadow-md break-words leading-relaxed backdrop-blur-md backdrop-saturate-150
                       ${msg.from === "user" ? "ml-auto" : "mr-auto"}
@@ -222,7 +214,7 @@ export default function Chatbot() {
         {/* Input Form: Form untuk mengetik dan mengirim pesan */}
         <form
           onSubmit={handleSend}
-          className="w-full max-w-full sm:max-w-3xl flex items-center bg-white border border-gray-200 rounded-full shadow-lg px-3 sm:px-4 py-2 gap-2"
+          className="w-full max-w-full sm:max-w-3xl flex items-center bg-white border border-purple-200 rounded-full shadow-lg px-3 sm:px-4 py-2 gap-2"
           autoComplete="off"
         >
           <textarea
