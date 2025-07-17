@@ -32,6 +32,12 @@ export default function Chatbot() {
     setInput("");
     setLoading(true);
 
+    // Reset tinggi textarea ke default setelah kirim
+    const textarea = document.querySelector("textarea");
+    if (textarea) {
+      textarea.style.height = "auto";
+    }
+
     try {
       // Kirim pertanyaan ke API dan tunggu jawaban bot
       const response = await chat(input);

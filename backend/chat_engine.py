@@ -37,9 +37,10 @@ try:
     # Dapatkan koleksi yang sudah ada dari Chroma Cloud
     vectorstore = Chroma(
         client=chroma_client,
-        collection_name=CHROMA_COLLECTION_NAME, # collection_name juga tetap di sini
+        collection_name=CHROMA_COLLECTION_NAME,
         embedding_function=embeddings
     )
+    print(f"DEBUG: Menggunakan koleksi Chroma Cloud: {CHROMA_COLLECTION_NAME}")
 except Exception as e:
     raise RuntimeError(f"Gagal inisialisasi Chroma CloudClient/vectorstore: {e}")
 
@@ -60,16 +61,36 @@ def get_conversation_chain_with_hybrid_multiquery_llm(openai_api_key, n_paraphra
         llm = ChatOpenAI(openai_api_key=openai_api_key, model_name="gpt-3.5-turbo", temperature=0.35)
     memory = ConversationBufferMemory(memory_key="chat_history", return_messages=True)
 
-    # Ambil semua chunk text dan simpan vectorizer global (cache di memory, update jika vectorstore berubah)
-    # Pastikan mengambil semua chunk tanpa limit
-    all_docs = vectorstore._collection.get(include=["documents", "metadatas", "embeddings"], limit=None)
-    chunk_texts = all_docs['documents']
-    all_metadatas = all_docs['metadatas']
-    all_embeddings = all_docs['embeddings']
-
+    # Ambil semua chunk dari Chroma Cloud dengan paging (limit+offset)
+    collection = vectorstore._collection
+    # print(f"DEBUG: Paging koleksi Chroma: {collection.name}")
+    total = collection.count()
+    # print(f"DEBUG: Total chunk di koleksi: {total}")
+    batch_size = 100
+    all_documents = []
+    all_metadatas = []
+    all_embeddings = []
+    for offset in range(0, total, batch_size):
+        batch = collection.get(
+            include=["documents", "metadatas", "embeddings"],
+            limit=batch_size,
+            offset=offset
+        )
+        all_documents.extend(batch["documents"])
+        all_metadatas.extend(batch["metadatas"])
+        all_embeddings.extend(batch["embeddings"])
+    # DEBUG: Print nama file/source dari semua chunk yang diambil
+    sources = set()
+    for meta in all_metadatas:
+        src = meta.get("source", None)
+        if src:
+            sources.add(src)
+    # print(f"DEBUG: Nama file/source yang ditemukan di koleksi: {sorted(list(sources))}")
+    # print(f"DEBUG: Jumlah file unik: {len(sources)}")
+    
     # Sinkronisasi jumlah chunk dan embedding
-    min_len = min(len(chunk_texts), len(all_embeddings))
-    chunk_texts = chunk_texts[:min_len]
+    min_len = min(len(all_documents), len(all_embeddings))
+    chunk_texts = all_documents[:min_len]
     all_metadatas = all_metadatas[:min_len]
     all_embeddings = all_embeddings[:min_len]
 
@@ -111,9 +132,9 @@ def get_conversation_chain_with_hybrid_multiquery_llm(openai_api_key, n_paraphra
     def hybrid_multiquery_retrieve(question, chat_history=None, top_k=top_k, alpha=alpha):
         question_for_retrieval = format_history(chat_history, last_question=question) if chat_history else question
         multi_queries = generate_paraphrases(question_for_retrieval, n=n_paraphrase)
-        print("Multiquery (paraphrase) yang digunakan:", multi_queries)
+        # print("Multiquery (paraphrase) yang digunakan:", multi_queries)
         all_scores = []
-        all_embeddings = vectorstore._collection.get(include=["embeddings"])["embeddings"]
+        # Jangan ambil ulang all_embeddings, gunakan yang sudah dipaging!
         question_embeddings = []
         for q in multi_queries:
             query_tfidf = vectorizer.transform([q])
@@ -121,40 +142,52 @@ def get_conversation_chain_with_hybrid_multiquery_llm(openai_api_key, n_paraphra
             q_emb = embeddings.embed_query(q)
             question_embeddings.append(q_emb)
             vector_scores = [
-                np.dot(q_emb, np.array(doc_emb)) / (np.linalg.norm(q_emb) * np.linalg.norm(doc_emb))
-                for doc_emb in all_embeddings
+                np.dot(q_emb, np.array(all_embeddings[i])) / (np.linalg.norm(q_emb) * np.linalg.norm(all_embeddings[i]))
+                for i in range(len(all_embeddings))
             ]
             # Pastikan tfidf_scores dan vector_scores sama panjang
             if len(tfidf_scores) != len(vector_scores):
                 min_len = min(len(tfidf_scores), len(vector_scores))
                 tfidf_scores = tfidf_scores[:min_len]
                 vector_scores = vector_scores[:min_len]
+            # hybrid_scores = alpha * tfidf_scores + (1 - alpha) * np.array(vector_scores)
+            # Dengan alpha kecil, cosine similarity lebih dominan
             hybrid_scores = alpha * tfidf_scores + (1 - alpha) * np.array(vector_scores)
             all_scores.append(hybrid_scores)
-            print(f"\nQuery: {q}")
-            print("TF-IDF scores (top 3):", sorted(tfidf_scores, reverse=True)[:3])
-            print("Vector scores (top 3):", sorted(vector_scores, reverse=True)[:3])
+            # print(f"\nQuery: {q}")
+            # print("TF-IDF scores (top 3):", sorted(tfidf_scores, reverse=True)[:3])
+            # print("Vector scores (top 3):", sorted(vector_scores, reverse=True)[:3])
         # Gabungkan skor: ambil skor tertinggi untuk setiap chunk di semua parafrase
         all_scores = np.array(all_scores)
         final_scores = np.max(all_scores, axis=0)
         top_idx = np.argsort(final_scores)[::-1][:top_k]
         all_metas = all_metadatas
+
+        # docs diurutkan sesuai urutan hybrid score (top_idx)
         docs = []
         for idx in top_idx:
-            print(f"Hybrid score: {final_scores[idx]:.4f}")
-            print("Chunk:", all_metas[idx].get('text', '')[:200])
+            # print(f"Hybrid score: {final_scores[idx]:.4f}")
+            # print("Chunk:", all_metas[idx].get('text', '')[:200])
             source_file = all_metas[idx].get('source', 'Tidak diketahui')
-            print(f"File PDF terpilih: {source_file}")
-            print(f"Cosine similarity (vector): {vector_scores[idx]:.4f}")
-            print("Vektor embedding pertanyaan (10 angka pertama):", np.array(question_embeddings[0])[:10])
-            print("Vektor embedding dokumen terpilih (10 angka pertama):", np.array(all_embeddings[idx])[:10])
+            # print(f"File PDF terpilih: {source_file}")
+            # print(f"Cosine similarity (vector): {np.dot(embeddings.embed_query(question), np.array(all_embeddings[idx])) / (np.linalg.norm(embeddings.embed_query(question)) * np.linalg.norm(all_embeddings[idx]) + 1e-8):.4f}")
             class Doc:
                 def __init__(self, meta, text):
                     self.page_content = text
                     self.source = meta.get('source', '')
                     self.hybrid_score = final_scores[idx]
-                    self.cosine_similarity = vector_scores[idx]
+                    self.cosine_similarity = np.dot(embeddings.embed_query(question), np.array(all_embeddings[idx])) / (np.linalg.norm(embeddings.embed_query(question)) * np.linalg.norm(all_embeddings[idx]) + 1e-8)
             docs.append(Doc(all_metas[idx], chunk_texts[idx]))
+        
+        # Setelah final_scores dan sebelum top_idx
+        # print("\n=== DEBUG: Skor hybrid dan cosine similarity untuk chunk dari file terbaru ===")
+        latest_file = sorted(list(sources))[-1]  # Ambil file terakhir secara alfabet (atau tentukan manual)
+        q_emb_debug = embeddings.embed_query(question)
+        for idx, meta in enumerate(all_metadatas):
+            if meta.get("source") == latest_file and idx < len(all_embeddings):
+                cos_sim = np.dot(q_emb_debug, np.array(all_embeddings[idx])) / (np.linalg.norm(q_emb_debug) * np.linalg.norm(all_embeddings[idx]) + 1e-8)
+                # print(f"IDX: {idx} | FILE: {latest_file} | Hybrid: {final_scores[idx]:.4f} | Cosine: {cos_sim:.4f} | CHUNK: {chunk_texts[idx][:80]}")
+        
         return docs
 
     # Kelas chain retrieval + LLM
