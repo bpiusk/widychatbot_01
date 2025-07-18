@@ -110,7 +110,7 @@ def get_conversation_chain_with_hybrid_multiquery_llm(openai_api_key, n_paraphra
         return [question] + [p.strip() for p in result.split('\n') if p.strip()]
 
     # Format riwayat chat menjadi string
-    def format_history(chat_history, last_question=None, max_history=8):
+    def format_history(chat_history, last_question=None, max_history=4):
         # Ambil hanya max_history pesan terakhir
         history_lines = []
         for msg in chat_history[-max_history:]:
