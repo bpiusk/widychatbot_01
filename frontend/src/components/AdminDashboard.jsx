@@ -297,7 +297,11 @@ export default function AdminDashboard({ token, onLogout }) {
                 <button
                   className={`${theme.buttonDanger} px-3 py-1 rounded-lg shadow text-sm transition disabled:opacity-60 disabled:cursor-not-allowed`}
                   onClick={() => handleDelete(pdf)}
-                  disabled={uploading || embedLoading || deletingFile === pdf}
+                  disabled={
+                    uploading ||
+                    embedLoading ||
+                    deletingFile !== null // Disable semua tombol hapus saat ada file yang sedang dihapus
+                  }
                 >
                   {deletingFile === pdf ? "Menghapus..." : "Hapus"}
                 </button>
