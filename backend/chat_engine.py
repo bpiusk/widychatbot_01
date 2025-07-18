@@ -55,10 +55,10 @@ QA_PROMPT = PromptTemplate(
 # Fungsi utama untuk membuat conversation chain dengan hybrid multiquery LLM
 # n_paraphrase: jumlah parafrase, alpha: bobot hybrid, top_k: jumlah chunk diambil
 
-def get_conversation_chain_with_hybrid_multiquery_llm(openai_api_key, n_paraphrase=3, alpha=0.6, top_k=15):
+def get_conversation_chain_with_hybrid_multiquery_llm(openai_api_key, n_paraphrase=3, alpha=0.4, top_k=10):
     global llm
     if llm is None or getattr(llm, "openai_api_key", None) != openai_api_key:
-        llm = ChatOpenAI(openai_api_key=openai_api_key, model_name="gpt-3.5-turbo", temperature=0.35)
+        llm = ChatOpenAI(openai_api_key=openai_api_key, model_name="gpt-3.5-turbo", temperature=0.3)
     memory = ConversationBufferMemory(memory_key="chat_history", return_messages=True)
 
     # Ambil semua chunk dari Chroma Cloud dengan paging (limit+offset)
@@ -101,7 +101,7 @@ def get_conversation_chain_with_hybrid_multiquery_llm(openai_api_key, n_paraphra
 
     # Membuat parafrase pertanyaan
     def generate_paraphrases(question, n=n_paraphrase):
-        para_llm = ChatOpenAI(openai_api_key=openai_api_key, model_name="gpt-3.5-turbo", temperature=0.35)
+        para_llm = ChatOpenAI(openai_api_key=openai_api_key, model_name="gpt-3.5-turbo", temperature=0.3)
         prompt = (
             f"Buat {n} parafrase berbeda untuk pertanyaan berikut dalam bahasa Indonesia. "
             f"Pisahkan setiap parafrase dengan baris baru.\nPertanyaan: {question}\nParafrase:"
