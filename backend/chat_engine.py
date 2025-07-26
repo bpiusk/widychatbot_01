@@ -55,10 +55,10 @@ QA_PROMPT = PromptTemplate(
 # Fungsi utama untuk membuat conversation chain dengan hybrid multiquery LLM
 # n_paraphrase: jumlah parafrase, alpha: bobot hybrid, top_k: jumlah chunk diambil
 
-def get_conversation_chain_with_hybrid_multiquery_llm(openai_api_key, n_paraphrase=3, alpha=0.4, top_k=10):
+def get_conversation_chain_with_hybrid_multiquery_llm(openai_api_key, n_paraphrase=2, alpha=0.3, top_k=12):
     global llm
     if llm is None or getattr(llm, "openai_api_key", None) != openai_api_key:
-        llm = ChatOpenAI(openai_api_key=openai_api_key, model_name="gpt-3.5-turbo", temperature=0.3)
+        llm = ChatOpenAI(openai_api_key=openai_api_key, model_name="gpt-3.5-turbo", temperature=0.5)
     memory = ConversationBufferMemory(memory_key="chat_history", return_messages=True)
 
     # Ambil semua chunk dari Chroma Cloud dengan paging (limit+offset)
@@ -101,7 +101,7 @@ def get_conversation_chain_with_hybrid_multiquery_llm(openai_api_key, n_paraphra
 
     # Membuat parafrase pertanyaan
     def generate_paraphrases(question, n=n_paraphrase):
-        para_llm = ChatOpenAI(openai_api_key=openai_api_key, model_name="gpt-3.5-turbo", temperature=0.3)
+        para_llm = ChatOpenAI(openai_api_key=openai_api_key, model_name="gpt-3.5-turbo", temperature=0.2)
         prompt = (
             f"Buat {n} parafrase berbeda untuk pertanyaan berikut dalam bahasa Indonesia. "
             f"Pisahkan setiap parafrase dengan baris baru.\nPertanyaan: {question}\nParafrase:"
@@ -167,9 +167,9 @@ def get_conversation_chain_with_hybrid_multiquery_llm(openai_api_key, n_paraphra
         docs = []
         for idx in top_idx:
             # print(f"Hybrid score: {final_scores[idx]:.4f}")
-            # print("Chunk:", all_metas[idx].get('text', '')[:200])
+            print("Chunk:", all_metas[idx].get('text', '')[:200])
             source_file = all_metas[idx].get('source', 'Tidak diketahui')
-            # print(f"File PDF terpilih: {source_file}")
+            print(f"File PDF terpilih: {source_file}")
             # print(f"Cosine similarity (vector): {np.dot(embeddings.embed_query(question), np.array(all_embeddings[idx])) / (np.linalg.norm(embeddings.embed_query(question)) * np.linalg.norm(all_embeddings[idx]) + 1e-8):.4f}")
             class Doc:
                 def __init__(self, meta, text):
